@@ -1,0 +1,11 @@
+{
+  "name": "@auto-clipper/tool-score-candidates",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "score-candidates": "dist/src/index.js" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": {
+    "@auto-clipper/scoring": "0.1.0",
+    "@auto-clipper/tooling": "0.1.0"
+  }
+}

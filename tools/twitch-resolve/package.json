@@ -1,0 +1,16 @@
+{
+  "name": "@auto-clipper/tool-twitch-resolve",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "twitch-resolve": "dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@auto-clipper/tooling": "0.1.0",
+    "@auto-clipper/twitch": "0.1.0"
+  }
+}

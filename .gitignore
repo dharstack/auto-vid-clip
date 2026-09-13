@@ -1,0 +1,15 @@
+node_modules/
+
+dist/
+packages/*/dist/
+apps/*/dist/
+apps/*/dist-types/
+tools/*/dist/
+*.tsbuildinfo
+.vercel/
+apps/*/.vercel/
+
+work/
+Clips/
+.env
+.env.*

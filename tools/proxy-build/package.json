@@ -1,0 +1,16 @@
+{
+  "name": "@auto-clipper/tool-proxy-build",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "proxy-build": "dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@auto-clipper/media-tools": "0.1.0",
+    "@auto-clipper/tooling": "0.1.0"
+  }
+}

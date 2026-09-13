@@ -1,0 +1,29 @@
+{
+  "name": "auto-video-clip",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "build:api": "npm run build -w @auto-clipper/api",
+    "build:web": "npm run build -w @auto-clipper/web",
+    "deploy:cloudflare": "npm run deploy -w @auto-clipper/api",
+    "deploy:vercel": "cd apps/web && vercel --prod",
+    "local:pipeline": "node tools/pipeline-run/dist/src/index.js",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "typescript": "^5.9.2"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "workerd": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@auto-clipper/tool-pipeline-run",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "pipeline-run": "dist/src/index.js" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": {
+    "@auto-clipper/candidates": "0.1.0",
+    "@auto-clipper/detectors": "0.1.0",
+    "@auto-clipper/jobs": "0.1.0",
+    "@auto-clipper/media": "0.1.0",
+    "@auto-clipper/media-tools": "0.1.0",
+    "@auto-clipper/render-plan": "0.1.0",
+    "@auto-clipper/scoring": "0.1.0",
+    "@auto-clipper/tooling": "0.1.0"
+  }
+}

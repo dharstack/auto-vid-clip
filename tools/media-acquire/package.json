@@ -1,0 +1,16 @@
+{
+  "name": "@auto-clipper/tool-media-acquire",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "media-acquire": "dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@auto-clipper/media": "0.1.0",
+    "@auto-clipper/tooling": "0.1.0"
+  }
+}

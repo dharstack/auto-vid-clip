@@ -1,0 +1,11 @@
+{
+  "name": "@auto-clipper/tool-job-status",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "job-status": "dist/src/index.js" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": {
+    "@auto-clipper/jobs": "0.1.0",
+    "@auto-clipper/tooling": "0.1.0"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "auto-video-clip-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-13",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "auto-video-clip",
+      "database_id": "3180fadc-54d1-4e52-9876-2d21d21f0933"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "JOBS",
+        "queue": "auto-video-clip-jobs"
+      }
+    ]
+  },
+  "vars": {
+    "ALLOWED_ORIGIN": "*"
+  }
+}

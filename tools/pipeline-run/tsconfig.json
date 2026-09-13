@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "composite": true, "rootDir": ".", "outDir": "dist" },
+  "references": [
+    { "path": "../../packages/candidates" },
+    { "path": "../../packages/detectors" },
+    { "path": "../../packages/jobs" },
+    { "path": "../../packages/media" },
+    { "path": "../../packages/media-tools" },
+    { "path": "../../packages/render-plan" },
+    { "path": "../../packages/scoring" },
+    { "path": "../../packages/tooling" }
+  ],
+  "include": ["src/**/*.ts"]
+}

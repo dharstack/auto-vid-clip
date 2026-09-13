@@ -1,0 +1,12 @@
+{
+  "name": "@auto-clipper/tool-detect-events",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "detect-events": "dist/src/index.js" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": {
+    "@auto-clipper/detectors": "0.1.0",
+    "@auto-clipper/media-tools": "0.1.0",
+    "@auto-clipper/tooling": "0.1.0"
+  }
+}
