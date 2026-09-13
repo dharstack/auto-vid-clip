@@ -45,8 +45,15 @@ npx wrangler d1 create auto-video-clip
 npx wrangler queues create auto-video-clip-jobs
 npx wrangler d1 execute auto-video-clip --file schema.sql --remote
 npx wrangler secret put TWITCH_CLIENT_ID
-npx wrangler secret put TWITCH_ACCESS_TOKEN
+npx wrangler secret put TWITCH_CLIENT_SECRET
 npx wrangler deploy
+```
+
+Local API development uses `apps/api/.dev.vars`:
+
+```text
+TWITCH_CLIENT_ID=<client-id>
+TWITCH_CLIENT_SECRET=<client-secret>
 ```
 
 Vercel web:

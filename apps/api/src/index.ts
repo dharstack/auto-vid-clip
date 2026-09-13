@@ -1,10 +1,10 @@
-import { FetchTwitchHelixClient, resolveLatestArchivedVod } from "@auto-clipper/twitch";
+import { createTwitchAppTokenProvider, FetchTwitchHelixClient, resolveLatestArchivedVod } from "@auto-clipper/twitch";
 
 interface Env {
   DB: D1Database;
   JOBS: Queue;
   TWITCH_CLIENT_ID?: string;
-  TWITCH_ACCESS_TOKEN?: string;
+  TWITCH_CLIENT_SECRET?: string;
   ALLOWED_ORIGIN?: string;
 }
 
@@ -20,8 +20,13 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/api/resolve") {
         const body = await request.json<{ input: string }>();
-        if (!env.TWITCH_CLIENT_ID || !env.TWITCH_ACCESS_TOKEN) throw new Error("TWITCH_CREDENTIALS_REQUIRED");
-        const data = await resolveLatestArchivedVod(body.input, new FetchTwitchHelixClient({ clientId: env.TWITCH_CLIENT_ID, accessToken: env.TWITCH_ACCESS_TOKEN }));
+        if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) throw new Error("TWITCH_CREDENTIALS_REQUIRED");
+        const tokenProvider = createTwitchAppTokenProvider({
+          clientId: env.TWITCH_CLIENT_ID,
+          clientSecret: env.TWITCH_CLIENT_SECRET
+        });
+        const accessToken = await tokenProvider.getAccessToken();
+        const data = await resolveLatestArchivedVod(body.input, new FetchTwitchHelixClient({ clientId: env.TWITCH_CLIENT_ID, accessToken }));
         await env.DB.prepare("INSERT OR REPLACE INTO vods (vod_id, channel, title, duration_seconds) VALUES (?, ?, ?, ?)").bind(data.vodId, data.channel, data.title, data.durationSeconds).run();
         return json({ status: "ok", data }, env);
       }

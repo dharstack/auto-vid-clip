@@ -1,5 +1,7 @@
 import type { TwitchResolveResult, Vod } from "@auto-clipper/contracts";
 
+export * from "./auth.js";
+
 export interface TwitchHelixUser {
   id: string;
   login: string;

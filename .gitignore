@@ -13,3 +13,5 @@ work/
 Clips/
 .env
 .env.*
+.dev.vars
+apps/*/.dev.vars

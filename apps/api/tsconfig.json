@@ -4,8 +4,8 @@
     "composite": true,
     "rootDir": ".",
     "outDir": "dist",
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types", "node"]
   },
   "references": [{ "path": "../../packages/twitch" }],
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }
