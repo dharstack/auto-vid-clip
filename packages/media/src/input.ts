@@ -24,6 +24,10 @@ export function formatYtDlpDownloadSection(startMs: number, endMs: number): stri
   return `*${formatTimestamp(startMs)}-${formatTimestamp(endMs)}`;
 }
 
+export function buildYtDlpSourceRangeArgs(options: { url: string; output: string; startMs: number; endMs: number }): string[] {
+  return ["-f", "bv*+ba/b", "--download-sections", formatYtDlpDownloadSection(options.startMs, options.endMs), "--force-keyframes-at-cuts", "--merge-output-format", "mp4", "-o", options.output, options.url];
+}
+
 function classifyUrl(input: string): PipelineInput {
   const url = new URL(input);
   const isTwitch = url.hostname === "twitch.tv" || url.hostname === "www.twitch.tv";

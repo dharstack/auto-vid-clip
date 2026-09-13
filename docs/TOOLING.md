@@ -24,6 +24,10 @@ Every tool should accept explicit inputs, support `--json`, return stable compac
 ```bash
 npm run build
 npm run local:pipeline -- https://www.twitch.tv/videos/123456
+
+# Process queued web jobs from local PC
+npm run build
+npm run local:worker
 ```
 
 Real Twitch VOD acquisition requires `yt-dlp`. Rendering requires FFmpeg and ffprobe.
@@ -46,6 +50,8 @@ npx wrangler queues create auto-video-clip-jobs
 npx wrangler d1 execute auto-video-clip --file schema.sql --remote
 npx wrangler secret put TWITCH_CLIENT_ID
 npx wrangler secret put TWITCH_CLIENT_SECRET
+npx wrangler d1 execute auto-video-clip --file migrations/0002_progress_json.sql --remote
+npx wrangler d1 execute auto-video-clip --file migrations/0003_job_input.sql --remote
 npx wrangler deploy
 ```
 

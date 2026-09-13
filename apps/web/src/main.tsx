@@ -9,11 +9,15 @@ interface ResolveData {
   vodId: string;
   title: string;
   durationSeconds: number;
+  createdAt?: string;
+  url?: string;
 }
 
 function App() {
   const [input, setInput] = useState("https://www.twitch.tv/videos/123456");
   const [resolved, setResolved] = useState<ResolveData | null>(null);
+  const [vods, setVods] = useState<ResolveData[]>([]);
+  const [selectedVod, setSelectedVod] = useState<ResolveData | null>(null);
   const [job, setJob] = useState<{ jobId: string; stage: string; progress: number | null; error?: string | null } | null>(null);
   const [message, setMessage] = useState("Ready");
 
@@ -30,6 +34,16 @@ function App() {
 
   async function resolveVod() {
     setMessage("Resolving VOD");
+    if (!input.trim().match(/^\d+$/) && !input.includes("/videos/")) {
+      const response = await fetch(`${apiBase}/api/vods?channel=${encodeURIComponent(input)}&limit=20`);
+      const body = await response.json();
+      if (body.status !== "ok") throw new Error(body.message);
+      setVods(body.data);
+      setResolved(null);
+      setSelectedVod(null);
+      setMessage("Select VOD");
+      return;
+    }
     const response = await fetch(`${apiBase}/api/resolve`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -38,11 +52,26 @@ function App() {
     const body = await response.json();
     if (body.status !== "ok") throw new Error(body.message);
     setResolved(body.data);
+    setSelectedVod(body.data);
+    setVods([]);
     setMessage("VOD resolved");
   }
 
   async function startJob() {
-    const vodId = resolved?.vodId ?? input.match(/videos\/(\d+)/)?.[1] ?? "local";
+    const chosen = selectedVod ?? (input.match(/^\d+$/) ? null : undefined);
+    if (input.trim().match(/^\d+$/) && !selectedVod) {
+      const response = await fetch(`${apiBase}/api/resolve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }) });
+      const body = await response.json();
+      if (body.status !== "ok") throw new Error(body.message);
+      setResolved(body.data);
+      setSelectedVod(body.data);
+      return;
+    }
+    if (input.includes("twitch.tv") && !chosen) {
+      setMessage("Select a VOD first");
+      return;
+    }
+    const vodId = chosen?.vodId ?? "local";
     const response = await fetch(`${apiBase}/api/jobs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -72,13 +101,20 @@ function App() {
         </div>
 
         <div className="grid">
+          {vods.length ? <Panel title="Recent VODs">
+            <div className="vodList">
+              {vods.map((vod) => <button className="vodItem" key={vod.vodId} onClick={() => { setSelectedVod(vod); setResolved(vod); setMessage("VOD selected"); }}>
+                <span>{vod.title}</span><small>{Math.round(vod.durationSeconds / 60)} min</small><strong>Process</strong>
+              </button>)}
+            </div>
+          </Panel> : null}
           <Panel title="Resolved VOD">
-            {resolved ? (
+            {selectedVod ? (
               <dl>
-                <dt>Channel</dt><dd>{resolved.channel}</dd>
-                <dt>VOD</dt><dd>{resolved.vodId}</dd>
-                <dt>Title</dt><dd>{resolved.title}</dd>
-                <dt>Duration</dt><dd>{Math.round(resolved.durationSeconds / 60)} min</dd>
+                <dt>Channel</dt><dd>{selectedVod.channel}</dd>
+                <dt>VOD</dt><dd>{selectedVod.vodId}</dd>
+                <dt>Title</dt><dd>{selectedVod.title}</dd>
+                <dt>Duration</dt><dd>{Math.round(selectedVod.durationSeconds / 60)} min</dd>
               </dl>
             ) : <p>No VOD resolved yet.</p>}
           </Panel>

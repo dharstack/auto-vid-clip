@@ -6,13 +6,18 @@ import { basename, join, resolve } from "node:path";
 import { buildCandidates } from "@auto-clipper/candidates";
 import { detectEventsFromMedia } from "@auto-clipper/detectors";
 import { createManifest, updateManifestStage } from "@auto-clipper/jobs";
-import { buildYtDlpAnalysisFormatSelector, classifyPipelineInput, vodIdFromInput } from "@auto-clipper/media";
+import { buildYtDlpAnalysisFormatSelector, buildYtDlpSourceRangeArgs, classifyPipelineInput, vodIdFromInput } from "@auto-clipper/media";
 import { buildAnalysisMediaArgs, buildAudioExtractArgs, buildProxyBuildArgs, buildRenderClipArgs, parseYtDlpProgressLine, probeMedia, runFfmpegWithProgress, shouldEmitProgress } from "@auto-clipper/media-tools";
 import { buildRenderPlan } from "@auto-clipper/render-plan";
 import { scoreCandidates } from "@auto-clipper/scoring";
-import { flagValue, hasFlag, positionalArg, printToolResult, toToolError } from "@auto-clipper/tooling";
+import { flagValue, formatCliProgress, hasFlag, positionalArg, printToolResult, toToolError } from "@auto-clipper/tooling";
 
 let remoteProgressEndpoint: string | undefined;
+let cliJson = false;
+let cliCompletedStages: string[] = [];
+let cliHeader: { vod?: string; durationMs?: number } = {};
+let cliStartedAtMs = 0;
+let cliLastPrintedStage: string | null = null;
 
 async function main(): Promise<void> {
   try {
@@ -21,11 +26,16 @@ async function main(): Promise<void> {
     if (!input) throw new Error("ARG_REQUIRED: VOD URL or local media path");
 
     const dryRun = hasFlag(argv, "--dry-run");
+    cliJson = hasFlag(argv, "--json");
+    cliStartedAtMs = Date.now();
+    cliCompletedStages = [];
+    cliLastPrintedStage = null;
     const workRoot = flagValue(argv, "--work-root") ?? "work";
     const apiBaseUrl = flagValue(argv, "--api-base-url") ?? process.env.AUTO_CLIPPER_API_BASE_URL;
     const resolvedInput = await resolvePipelineInput(input, apiBaseUrl);
     const vodId = resolvedInput.vodId;
     const jobId = flagValue(argv, "--job-id") ?? `job-${vodId}`;
+    cliHeader = { vod: vodId };
     remoteProgressEndpoint = apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, "")}/api/jobs/${jobId}` : undefined;
     const jobDir = join(workRoot, jobId);
     const exportsDir = join(jobDir, "exports");
@@ -72,6 +82,7 @@ async function main(): Promise<void> {
     const probe = dryRun ? { durationMs: 120000, width: 1280, height: 720, fps: 30, hasAudio: true } : existsSync(join(jobDir, "media.json"))
       ? JSON.parse(await readFile(join(jobDir, "media.json"), "utf8"))
       : await probeMedia(analysisSource);
+    cliHeader.durationMs = probe.durationMs;
     await writeJson(join(jobDir, "media.json"), probe);
     await writeProgress(jobDir, { jobId, stage: "PROBE", status: "complete", progress: 1, message: "Probe complete", elapsedMs: 0 });
     manifest = updateManifestStage(manifest, "probe", "complete");
@@ -131,9 +142,24 @@ async function main(): Promise<void> {
       for (const clip of plan.clips) {
         const output = join(exportsDir, clip.output);
         if (!existsSync(output)) {
+          let clipInput = renderInput;
+          let startMs = clip.startMs;
+          let endMs = clip.endMs;
+          if (!existsSync(source) && resolvedInput.kind === "twitch-vod") {
+            const rangeDir = join(jobDir, "ranges");
+            const range = join(rangeDir, `${clip.startMs}-${clip.endMs}.mp4`);
+            await mkdir(rangeDir, { recursive: true });
+            if (!existsSync(range)) {
+              await writeProgress(jobDir, { jobId, stage: "ACQUIRE_RENDER_RANGE", status: "running", progress: null, message: `Acquiring ${basename(clip.output)} source range`, elapsedMs: 0 });
+              await runYtDlpWithProgress(jobDir, resolveYtDlp(), buildYtDlpSourceRangeArgs({ url: resolvedInput.url, output: range, startMs: clip.startMs, endMs: clip.endMs }), "ACQUIRE_RENDER_RANGE");
+            }
+            clipInput = range;
+            startMs = 0;
+            endMs = clip.endMs - clip.startMs;
+          }
           await writeProgress(jobDir, { jobId, stage: "RENDER", status: "running", progress: null, message: `Rendering ${basename(clip.output)}`, elapsedMs: 0 });
-          await runProgressFfmpeg(jobDir, buildRenderClipArgs({ input: renderInput, output, startMs: clip.startMs, endMs: clip.endMs }), {
-            jobId, stage: "RENDER", totalDurationMs: clip.endMs - clip.startMs, message: `Rendering ${basename(clip.output)}`, logName: "render.log"
+          await runProgressFfmpeg(jobDir, buildRenderClipArgs({ input: clipInput, output, startMs, endMs }), {
+            jobId, stage: "RENDER", totalDurationMs: endMs - startMs, message: `Rendering ${basename(clip.output)}`, logName: "render.log"
           });
         }
       }
@@ -142,9 +168,11 @@ async function main(): Promise<void> {
     manifest = updateManifestStage(updateManifestStage(manifest, "resolve", "complete"), "render", "complete");
     await writeJson(join(jobDir, "manifest.json"), manifest);
 
-    printToolResult({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, manifest: join(jobDir, "manifest.json") } });
+    if (cliJson) printToolResult({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, manifest: join(jobDir, "manifest.json") } });
+    else process.stdout.write(`${formatCliProgress({ jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: Date.now() - cliStartedAtMs, updatedAt: new Date().toISOString() }, cliCompletedStages, cliHeader)}\n`);
   } catch (error) {
-    printToolResult(toToolError(error, "PIPELINE_RUN_FAILED"));
+    if (cliJson) printToolResult(toToolError(error, "PIPELINE_RUN_FAILED"));
+    else process.stderr.write(`Pipeline failed: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exitCode = 1;
   }
 }
@@ -183,8 +211,18 @@ async function writeProgress(
   jobDir: string,
   progress: { jobId: string; stage: string; status: string; progress?: number | null; message: string; elapsedMs: number }
 ): Promise<void> {
-  const snapshot = { ...progress, updatedAt: new Date().toISOString() };
+  const snapshot = { ...progress, elapsedMs: progress.elapsedMs || Math.max(0, Date.now() - cliStartedAtMs), updatedAt: new Date().toISOString() };
   await writeJson(join(jobDir, "progress.json"), snapshot);
+  if (!cliJson) {
+    if (snapshot.status === "complete" && !cliCompletedStages.includes(snapshot.stage)) cliCompletedStages.push(snapshot.stage);
+    if (process.stdout.isTTY) {
+      process.stdout.write("\x1b[2J\x1b[H");
+      process.stdout.write(formatCliProgress(snapshot as Parameters<typeof formatCliProgress>[0], cliCompletedStages, cliHeader));
+    } else if (cliLastPrintedStage !== snapshot.stage) {
+      cliLastPrintedStage = snapshot.stage;
+      process.stdout.write(`[${snapshot.status === "complete" ? "x" : ">"}] ${snapshot.message}\n`);
+    }
+  }
   if (remoteProgressEndpoint) {
     await globalThis.fetch(remoteProgressEndpoint, {
       method: "PATCH",
@@ -216,7 +254,7 @@ async function runProgressFfmpeg(
   });
 }
 
-async function runYtDlpWithProgress(jobDir: string, command: string, args: string[]): Promise<void> {
+async function runYtDlpWithProgress(jobDir: string, command: string, args: string[], progressStage: "DOWNLOAD_ANALYSIS_MEDIA" | "ACQUIRE_RENDER_RANGE" = "DOWNLOAD_ANALYSIS_MEDIA"): Promise<void> {
   await mkdir(join(jobDir, "logs"), { recursive: true });
   await new Promise<void>((resolveCommand, reject) => {
     const startedAtMs = Date.now();
@@ -232,7 +270,8 @@ async function runYtDlpWithProgress(jobDir: string, command: string, args: strin
       const lines = pending.split(/\r?\n/);
       pending = lines.pop() ?? "";
       for (const line of lines) {
-        const progress = parseYtDlpProgressLine(line, { jobId: basename(jobDir), nowMs: Date.now(), startedAtMs });
+        const parsed = parseYtDlpProgressLine(line, { jobId: basename(jobDir), nowMs: Date.now(), startedAtMs });
+        const progress = parsed ? { ...parsed, stage: progressStage } : null;
         if (!progress) continue;
         const nowMs = Date.now();
         if (shouldEmitProgress(previous, progress, { nowMs, lastEmittedAtMs })) {

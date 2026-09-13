@@ -92,6 +92,30 @@ h2 {
   padding: 18px;
 }
 
+.vodList {
+  display: grid;
+  gap: 8px;
+}
+
+.vodItem {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  background: #f8fafc;
+  color: #161616;
+  border-color: #d8dde3;
+}
+
+.vodItem small {
+  color: #6b7280;
+}
+
+.vodItem strong {
+  color: #1f2937;
+}
+
 dl {
   display: grid;
   grid-template-columns: 90px 1fr;

@@ -21,4 +21,6 @@ export interface TwitchResolveResult {
   vodId: string;
   title: string;
   durationSeconds: number;
+  createdAt?: string;
+  url?: string;
 }

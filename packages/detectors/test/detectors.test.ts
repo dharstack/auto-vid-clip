@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { detectAudioReactionEvents, detectCombatMotionEvents } from "../src/index.js";
+import { consumeFixedChunks, detectAudioReactionEvents, detectCombatMotionEvents } from "../src/index.js";
 
 test("detects sustained motion spikes from sampled frame differences", () => {
   const events = detectCombatMotionEvents([
@@ -31,4 +31,10 @@ test("detects audio reaction outliers against rolling baseline", () => {
   assert.equal(events.length, 1);
   assert.equal(events[0].type, "MIC_REACTION");
   assert.equal(events[0].startMs, 3000);
+});
+
+test("consumes partial and multiple fixed-size stream chunks", () => {
+  const frames: number[][] = [];
+  consumeFixedChunks([Buffer.from([1, 2]), Buffer.from([3, 4, 5, 6, 7]), Buffer.from([8])], 3, (chunk) => frames.push([...chunk]));
+  assert.deepEqual(frames, [[1, 2, 3], [4, 5, 6], [7, 8]]);
 });

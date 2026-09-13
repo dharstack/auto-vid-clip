@@ -1,4 +1,4 @@
-import { createTwitchAppTokenProvider, FetchTwitchHelixClient, resolveLatestArchivedVod } from "@auto-clipper/twitch";
+import { createTwitchAppTokenProvider, extractTwitchVodId, FetchTwitchHelixClient, getArchivedVods, resolveLatestArchivedVod, resolveVodById } from "@auto-clipper/twitch";
 
 interface Env {
   DB: D1Database;
@@ -18,29 +18,33 @@ export default {
         return json({ status: "ok" }, env);
       }
 
-      if (request.method === "POST" && url.pathname === "/api/resolve") {
-        const body = await request.json<{ input: string }>();
+      if ((request.method === "POST" && url.pathname === "/api/resolve") || (request.method === "GET" && url.pathname === "/api/vods")) {
         if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) throw new Error("TWITCH_CREDENTIALS_REQUIRED");
-        const tokenProvider = createTwitchAppTokenProvider({
-          clientId: env.TWITCH_CLIENT_ID,
-          clientSecret: env.TWITCH_CLIENT_SECRET
-        });
+        const input = request.method === "POST" ? (await request.json<{ input: string }>()).input : url.searchParams.get("channel") ?? "";
+        const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit") ?? 20)));
+        const tokenProvider = createTwitchAppTokenProvider({ clientId: env.TWITCH_CLIENT_ID, clientSecret: env.TWITCH_CLIENT_SECRET });
         const accessToken = await tokenProvider.getAccessToken();
-        const data = await resolveLatestArchivedVod(body.input, new FetchTwitchHelixClient({ clientId: env.TWITCH_CLIENT_ID, accessToken }));
+        const client = new FetchTwitchHelixClient({ clientId: env.TWITCH_CLIENT_ID, accessToken });
+        const exactVodId = extractTwitchVodId(input);
+        if (request.method === "GET") {
+          const data = await getArchivedVods(input, client, limit);
+          return json({ status: "ok", data }, env);
+        }
+        const data = exactVodId ? await resolveVodById(exactVodId, client) : await resolveLatestArchivedVod(input, client);
         await env.DB.prepare("INSERT OR REPLACE INTO vods (vod_id, channel, title, duration_seconds) VALUES (?, ?, ?, ?)").bind(data.vodId, data.channel, data.title, data.durationSeconds).run();
-        return json({ status: "ok", data }, env);
+        return json({ status: "ok", data: { ...data, url: data.url ?? `https://www.twitch.tv/videos/${data.vodId}` } }, env);
       }
 
       if (request.method === "POST" && url.pathname === "/api/jobs") {
         const body = await request.json<{ vodId: string; input: string }>();
         const jobId = `job-${body.vodId}-${Date.now()}`;
-        await env.DB.prepare("INSERT INTO analysis_jobs (job_id, vod_id, stage, progress, error) VALUES (?, ?, ?, ?, NULL)").bind(jobId, body.vodId, "PENDING", 0).run();
+        await env.DB.prepare("INSERT INTO analysis_jobs (job_id, vod_id, input, stage, progress, error) VALUES (?, ?, ?, ?, ?, NULL)").bind(jobId, body.vodId, body.input, "PENDING", 0).run();
         await env.JOBS.send({ jobId, vodId: body.vodId, input: body.input });
         return json({ status: "ok", data: { jobId, stage: "PENDING", progress: 0 } }, env);
       }
 
       if (request.method === "GET" && url.pathname === "/api/jobs/next") {
-        const row = await env.DB.prepare("SELECT job_id, vod_id, stage, progress, error FROM analysis_jobs WHERE stage = ? ORDER BY created_at ASC LIMIT 1").bind("PENDING").first();
+        const row = await env.DB.prepare("SELECT job_id, vod_id, input, stage, progress, error FROM analysis_jobs WHERE stage = ? ORDER BY created_at ASC LIMIT 1").bind("PENDING").first();
         return json({ status: "ok", data: row ?? null }, env);
       }
 

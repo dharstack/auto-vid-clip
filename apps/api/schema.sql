@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS vods (
 CREATE TABLE IF NOT EXISTS analysis_jobs (
   job_id TEXT PRIMARY KEY,
   vod_id TEXT NOT NULL,
+  input TEXT,
   stage TEXT NOT NULL,
   progress REAL,
   progress_json TEXT,

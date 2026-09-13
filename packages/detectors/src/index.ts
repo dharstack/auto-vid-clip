@@ -6,6 +6,18 @@ export interface MotionDetectorOptions { threshold?: number; minSamples?: number
 export interface AudioRmsSample { timestampMs: number; rms: number; }
 export interface AudioReactionOptions { baselineWindow?: number; multiplier?: number; minimumRms?: number; }
 
+export function consumeFixedChunks(chunks: Uint8Array[], chunkSize: number, onChunk: (chunk: Uint8Array) => void): void {
+  let pending = Buffer.alloc(0);
+  for (const chunk of chunks) {
+    pending = Buffer.concat([pending, Buffer.from(chunk)]);
+    while (pending.length >= chunkSize) {
+      onChunk(pending.subarray(0, chunkSize));
+      pending = pending.subarray(chunkSize);
+    }
+  }
+  if (pending.length) onChunk(pending);
+}
+
 export function detectCombatMotionEvents(samples: FrameDifferenceSample[], options: MotionDetectorOptions = {}): GameplayEvent[] {
   const threshold = options.threshold ?? 0.25;
   const minSamples = options.minSamples ?? 2;
@@ -66,48 +78,64 @@ async function readFrameDifferences(ffmpeg: string, input: string, sampleFps: nu
   const width = 160;
   const height = 90;
   const bytesPerFrame = width * height;
-  const raw = await runRaw(ffmpeg, ["-hide_banner", "-loglevel", "error", "-i", input, "-vf", `fps=${sampleFps},scale=${width}:${height},format=gray`, "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"]);
   const samples: FrameDifferenceSample[] = [];
   let previous: Uint8Array | null = null;
-  for (let offset = 0, frame = 0; offset + bytesPerFrame <= raw.length; offset += bytesPerFrame, frame += 1) {
-    const current = raw.subarray(offset, offset + bytesPerFrame);
+  let frame = 0;
+  await runRawStream(ffmpeg, ["-hide_banner", "-loglevel", "error", "-i", input, "-vf", `fps=${sampleFps},scale=${width}:${height},format=gray`, "-f", "rawvideo", "-pix_fmt", "gray", "pipe:1"], (current) => {
+    if (current.length !== bytesPerFrame) return;
     if (previous) {
       let total = 0;
       for (let index = 0; index < current.length; index += 1) total += Math.abs(current[index] - previous[index]);
       samples.push({ timestampMs: Math.round(frame * 1000 / sampleFps), difference: total / current.length / 255 });
     }
     previous = current;
-  }
+    frame += 1;
+  }, bytesPerFrame);
   return samples;
 }
 
 async function readAudioRms(ffmpeg: string, input: string): Promise<AudioRmsSample[]> {
   const sampleRate = 16000;
   const bytesPerSecond = sampleRate * 2;
-  const raw = await runRaw(ffmpeg, ["-hide_banner", "-loglevel", "error", "-i", input, "-f", "s16le", "-ac", "1", "-ar", String(sampleRate), "pipe:1"]);
   const samples: AudioRmsSample[] = [];
-  for (let offset = 0, second = 0; offset + 1 < raw.length; offset += bytesPerSecond, second += 1) {
-    const end = Math.min(raw.length, offset + bytesPerSecond);
+  let second = 0;
+  await runRawStream(ffmpeg, ["-hide_banner", "-loglevel", "error", "-i", input, "-f", "s16le", "-ac", "1", "-ar", String(sampleRate), "pipe:1"], (raw) => {
+    const end = raw.length;
     let sum = 0;
     let count = 0;
-    for (let index = offset; index + 1 < end; index += 2) {
+    for (let index = 0; index + 1 < end; index += 2) {
       const value = raw.readInt16LE(index) / 32768;
       sum += value * value;
       count += 1;
     }
-    if (count) samples.push({ timestampMs: second * 1000, rms: Math.sqrt(sum / count) });
-  }
+    if (count) samples.push({ timestampMs: second++ * 1000, rms: Math.sqrt(sum / count) });
+  }, bytesPerSecond);
   return samples;
 }
 
-function runRaw(command: string, args: string[]): Promise<Buffer> {
+function runRawStream(command: string, args: string[], onChunk: (chunk: Buffer) => void, chunkSize?: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
-    const output: Buffer[] = [];
     const errors: Buffer[] = [];
-    child.stdout.on("data", (chunk: Buffer) => output.push(chunk));
+    let pending = Buffer.alloc(0);
+    child.stdout.on("data", (chunk: Buffer) => {
+      pending = Buffer.concat([pending, chunk]);
+      if (!chunkSize) {
+        onChunk(pending);
+        pending = Buffer.alloc(0);
+        return;
+      }
+      while (pending.length >= chunkSize) {
+        onChunk(pending.subarray(0, chunkSize));
+        pending = pending.subarray(chunkSize);
+      }
+    });
     child.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
     child.on("error", reject);
-    child.on("close", (code) => code === 0 ? resolve(Buffer.concat(output)) : reject(new Error(`DETECT_MEDIA_FAILED: ${Buffer.concat(errors).toString("utf8").trim()}`)));
+    child.on("close", (code) => {
+      if (code !== 0) return reject(new Error(`DETECT_MEDIA_FAILED: ${Buffer.concat(errors).toString("utf8").trim()}`));
+      if (pending.length && (!chunkSize || pending.length > 1)) onChunk(pending);
+      resolve();
+    });
   });
 }

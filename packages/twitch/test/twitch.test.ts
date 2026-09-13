@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getLatestArchivedVod,
+  getArchivedVods,
   normalizeTwitchChannel,
+  resolveVodById,
   resolveLatestArchivedVod
 } from "../src/index.js";
 
@@ -80,4 +82,35 @@ test("resolves user then latest archived VOD through Helix client", async () => 
     title: "Mortal Shell II",
     durationSeconds: 7200
   });
+});
+
+test("lists recent archived VODs with requested limit", async () => {
+  const vods = await getArchivedVods("mauledbygrizzly", {
+    async getUserByLogin() { return { id: "user-1", login: "mauledbygrizzly" }; },
+    async getVideosByUserId(userId, options) {
+      assert.equal(userId, "user-1");
+      assert.deepEqual(options, { type: "archive", first: 2 });
+      return [
+        { id: "old", title: "Old", duration: "1h", created_at: "2026-01-01T00:00:00Z", type: "archive" },
+        { id: "new", title: "New", duration: "2h", created_at: "2026-01-02T00:00:00Z", type: "archive" }
+      ];
+    }
+  }, 2);
+  assert.equal(vods.length, 2);
+  assert.equal(vods[0].vodId, "new");
+  assert.equal(vods[0].url, "https://www.twitch.tv/videos/new");
+});
+
+test("resolves exact VOD ID without resolving channel latest", async () => {
+  const vod = await resolveVodById("2872824469", {
+    async getUserByLogin() { throw new Error("must not resolve channel"); },
+    async getVideosByUserId() { throw new Error("must not list channel"); },
+    async getVideoById(vodId) {
+      assert.equal(vodId, "2872824469");
+      return { id: vodId, title: "Immoral Shell 6", duration: "5h9m58s", created_at: "2026-09-12T00:00:00Z", type: "archive", user_login: "mauledbygrizzly" };
+    }
+  });
+  assert.equal(vod.vodId, "2872824469");
+  assert.equal(vod.channel, "mauledbygrizzly");
+  assert.equal(vod.durationSeconds, 18598);
 });

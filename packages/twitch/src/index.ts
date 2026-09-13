@@ -15,6 +15,7 @@ export interface TwitchHelixVideo {
   created_at: string;
   type: string;
   url?: string;
+  user_login?: string;
 }
 
 export interface GetVideosOptions {
@@ -25,6 +26,7 @@ export interface GetVideosOptions {
 export interface TwitchHelixClient {
   getUserByLogin(login: string): Promise<TwitchHelixUser | null>;
   getVideosByUserId(userId: string, options: GetVideosOptions): Promise<TwitchHelixVideo[]>;
+  getVideoById?(vodId: string): Promise<TwitchHelixVideo | null>;
 }
 
 export function normalizeTwitchChannel(input: string): string {
@@ -54,6 +56,20 @@ export function normalizeTwitchChannel(input: string): string {
   throw new Error("TWITCH_CHANNEL_INVALID: expected channel URL");
 }
 
+export function extractTwitchVodId(input: string): string | null {
+  const trimmed = input.trim();
+  if (/^\d+$/.test(trimmed)) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if ((url.hostname === "twitch.tv" || url.hostname === "www.twitch.tv") && /^\/videos\/\d+\/?$/.test(url.pathname)) {
+      return url.pathname.split("/")[2];
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function parseTwitchDurationSeconds(duration: string): number {
   const match = duration.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
   if (!match) {
@@ -74,15 +90,25 @@ export function getLatestArchivedVod(channel: string, videos: TwitchHelixVideo[]
     throw new Error("TWITCH_VOD_NOT_FOUND: no archived VOD");
   }
 
-  return {
-    provider: "twitch",
-    channel,
-    vodId: archive.id,
-    title: archive.title,
-    durationSeconds: parseTwitchDurationSeconds(archive.duration),
-    createdAt: archive.created_at,
-    url: archive.url
-  };
+  return toVod(channel, archive);
+}
+
+export async function getArchivedVods(channelInput: string, client: TwitchHelixClient, limit = 20): Promise<Vod[]> {
+  const channel = normalizeTwitchChannel(channelInput);
+  const user = await client.getUserByLogin(channel);
+  if (!user) throw new Error(`TWITCH_USER_NOT_FOUND: ${channel}`);
+  const videos = await client.getVideosByUserId(user.id, { type: "archive", first: limit });
+  return videos.filter((video) => video.type === "archive")
+    .sort((left, right) => Date.parse(right.created_at) - Date.parse(left.created_at))
+    .slice(0, limit).map((video) => toVod(channel, video));
+}
+
+export async function resolveVodById(vodId: string, client: TwitchHelixClient): Promise<Vod> {
+  if (!/^\d+$/.test(vodId)) throw new Error(`TWITCH_VOD_INVALID: ${vodId}`);
+  if (!client.getVideoById) throw new Error("TWITCH_VOD_LOOKUP_UNAVAILABLE");
+  const video = await client.getVideoById(vodId);
+  if (!video || video.type !== "archive") throw new Error(`TWITCH_VOD_NOT_FOUND: ${vodId}`);
+  return toVod(video.user_login ?? "unknown", video);
 }
 
 export async function resolveLatestArchivedVod(
@@ -127,6 +153,11 @@ export class FetchTwitchHelixClient implements TwitchHelixClient {
     return response.data;
   }
 
+  async getVideoById(vodId: string): Promise<TwitchHelixVideo | null> {
+    const response = await this.get<{ data: TwitchHelixVideo[] }>("/videos", { id: vodId });
+    return response.data[0] ?? null;
+  }
+
   private async get<T>(path: string, params: Record<string, string>): Promise<T> {
     const url = new URL(`${this.apiBase}${path}`);
     for (const [key, value] of Object.entries(params)) {
@@ -146,6 +177,18 @@ export class FetchTwitchHelixClient implements TwitchHelixClient {
 
     return (await response.json()) as T;
   }
+}
+
+function toVod(channel: string, video: TwitchHelixVideo): Vod {
+  return {
+    provider: "twitch",
+    channel,
+    vodId: video.id,
+    title: video.title,
+    durationSeconds: parseTwitchDurationSeconds(video.duration),
+    createdAt: video.created_at,
+    url: video.url ?? `https://www.twitch.tv/videos/${video.id}`
+  };
 }
 
 function validateChannel(channel: string): string {

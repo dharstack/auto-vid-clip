@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildYtDlpAnalysisFormatSelector,
+  buildYtDlpSourceRangeArgs,
   classifyPipelineInput,
   createLocalVodMediaProvider,
   formatYtDlpDownloadSection,
@@ -66,4 +67,10 @@ test("builds low-cost yt-dlp analysis selector", () => {
 
 test("formats source range download section", () => {
   assert.equal(formatYtDlpDownloadSection(7_890_000, 7_932_500), "*02:11:30.000-02:12:12.500");
+});
+
+test("builds source-quality range acquisition args", () => {
+  assert.deepEqual(buildYtDlpSourceRangeArgs({ url: "https://www.twitch.tv/videos/123", output: "range.mp4", startMs: 1000, endMs: 61000 }), [
+    "-f", "bv*+ba/b", "--download-sections", "*00:00:01.000-00:01:01.000", "--force-keyframes-at-cuts", "--merge-output-format", "mp4", "-o", "range.mp4", "https://www.twitch.tv/videos/123"
+  ]);
 });
