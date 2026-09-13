@@ -47,6 +47,31 @@ test("requests token with client credentials and returns access token", async ()
   assert.match(body, /grant_type=client_credentials/);
 });
 
+test("default fetch path keeps globalThis receiver", async () => {
+  const previousFetch = globalThis.fetch;
+  const calls: Request[] = [];
+  globalThis.fetch = (async function (this: typeof globalThis, input: RequestInfo | URL, init?: RequestInit) {
+    if (this !== globalThis) {
+      throw new Error("Illegal invocation: function called with incorrect this reference");
+    }
+    calls.push(new Request(input, init));
+    return jsonResponse({ access_token: "token-global", expires_in: 3600, token_type: "bearer" });
+  }) as typeof fetch;
+
+  try {
+    const provider = createTwitchAppTokenProvider({
+      clientId: "client",
+      clientSecret: "secret",
+      refreshSkewMs: 300_000
+    });
+
+    assert.equal(await provider.getAccessToken(), "token-global");
+    assert.equal(calls.length, 1);
+  } finally {
+    globalThis.fetch = previousFetch;
+  }
+});
+
 test("reuses cached valid token", async () => {
   let calls = 0;
   let now = 1000;

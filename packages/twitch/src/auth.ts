@@ -26,7 +26,7 @@ let sharedCache: CachedToken | null = null;
 let sharedInFlight: Promise<string> | null = null;
 
 export function createTwitchAppTokenProvider(options: TwitchAppTokenProviderOptions): TwitchAppTokenProvider {
-  const fetchFn = options.fetch ?? fetch;
+  const fetchFn = options.fetch ?? ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
   const nowMs = options.nowMs ?? Date.now;
   const refreshSkewMs = options.refreshSkewMs ?? 300_000;
   const tokenUrl = options.tokenUrl ?? "https://id.twitch.tv/oauth2/token";
