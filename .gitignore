@@ -10,6 +10,7 @@ tools/*/dist/
 apps/*/.vercel/
 
 work/
+work-*/
 Clips/
 .env
 .env.*

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
@@ -14,8 +14,19 @@ interface ResolveData {
 function App() {
   const [input, setInput] = useState("https://www.twitch.tv/videos/123456");
   const [resolved, setResolved] = useState<ResolveData | null>(null);
-  const [job, setJob] = useState<{ jobId: string; stage: string; progress: number } | null>(null);
+  const [job, setJob] = useState<{ jobId: string; stage: string; progress: number | null; error?: string | null } | null>(null);
   const [message, setMessage] = useState("Ready");
+
+  useEffect(() => {
+    if (!job || job.stage === "COMPLETE" || job.stage === "FAILED") return;
+    const timer = window.setInterval(async () => {
+      const response = await fetch(`${apiBase}/api/jobs/${job.jobId}`);
+      if (!response.ok) return;
+      const body = await response.json();
+      if (body.status === "ok") setJob(body.data);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [job?.jobId, job?.stage]);
 
   async function resolveVod() {
     setMessage("Resolving VOD");
@@ -77,7 +88,8 @@ function App() {
               <dl>
                 <dt>ID</dt><dd>{job.jobId}</dd>
                 <dt>Stage</dt><dd>{job.stage}</dd>
-                <dt>Progress</dt><dd>{Math.round(job.progress * 100)}%</dd>
+                <dt>Progress</dt><dd>{job.progress === null ? "Running" : `${Math.round(job.progress * 100)}%`}</dd>
+                {job.error ? <><dt>Error</dt><dd>{job.error}</dd></> : null}
               </dl>
             ) : <p>No job created yet.</p>}
           </Panel>

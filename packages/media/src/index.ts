@@ -1,4 +1,5 @@
 import type { MediaSource, VodMediaProvider } from "@auto-clipper/contracts";
+export * from "./input.js";
 
 export interface LocalVodMediaProviderOptions {
   mediaRoot: string;

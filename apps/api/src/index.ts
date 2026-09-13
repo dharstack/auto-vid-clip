@@ -46,15 +46,17 @@ export default {
 
       const jobMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)$/);
       if (request.method === "PATCH" && jobMatch) {
-        const body = await request.json<{ stage: string; progress: number; error?: string | null }>();
-        await env.DB.prepare("UPDATE analysis_jobs SET stage = ?, progress = ?, error = ?, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?").bind(body.stage, body.progress, body.error ?? null, jobMatch[1]).run();
-        return json({ status: "ok", data: { jobId: jobMatch[1], stage: body.stage, progress: body.progress, error: body.error ?? null } }, env);
+        const body = await request.json<{ stage: string; status?: string; progress?: number | null; message?: string; elapsedMs?: number; etaMs?: number | null; error?: string | null }>();
+        const progress = { jobId: jobMatch[1], stage: body.stage, status: body.status ?? "running", progress: body.progress ?? null, message: body.message ?? body.stage, elapsedMs: body.elapsedMs ?? 0, ...(body.etaMs === undefined ? {} : { etaMs: body.etaMs }) };
+        await env.DB.prepare("UPDATE analysis_jobs SET stage = ?, progress = ?, progress_json = ?, error = ?, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?").bind(body.stage, body.progress ?? null, JSON.stringify(progress), body.error ?? null, jobMatch[1]).run();
+        return json({ status: "ok", data: { ...progress, error: body.error ?? null } }, env);
       }
 
       if (request.method === "GET" && jobMatch) {
-        const row = await env.DB.prepare("SELECT job_id, vod_id, stage, progress, error FROM analysis_jobs WHERE job_id = ?").bind(jobMatch[1]).first();
+        const row = await env.DB.prepare("SELECT job_id, vod_id, stage, progress, progress_json, error FROM analysis_jobs WHERE job_id = ?").bind(jobMatch[1]).first<{ job_id: string; vod_id: string; stage: string; progress: number | null; progress_json: string | null; error: string | null }>();
         if (!row) return json({ status: "error", code: "JOB_NOT_FOUND", message: "Job not found" }, env, 404);
-        return json({ status: "ok", data: row }, env);
+        const progress = row.progress_json ? JSON.parse(row.progress_json) : { jobId: row.job_id, stage: row.stage, status: row.stage === "COMPLETE" ? "complete" : "running", progress: row.progress, message: row.stage, elapsedMs: 0 };
+        return json({ status: "ok", data: { ...progress, vodId: row.vod_id, error: row.error } }, env);
       }
 
       return json({ status: "error", code: "NOT_FOUND", message: "Not found" }, env, 404);
@@ -74,7 +76,7 @@ function withCors(body: BodyInit | null, env: Env, status = 204): Response {
     headers: {
       "content-type": "application/json",
       "access-control-allow-origin": env.ALLOWED_ORIGIN ?? "*",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
+      "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
       "access-control-allow-headers": "content-type"
     }
   });

@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import type { MediaProbe } from "@auto-clipper/contracts";
+import type { MediaProbe, PipelineProgressStage } from "@auto-clipper/contracts";
+import { parseFfmpegProgress, shouldEmitProgress } from "./progress.js";
+export * from "./progress.js";
 
 export interface ProxyBuildOptions {
   input: string;
@@ -19,6 +21,13 @@ export interface RenderClipOptions {
   output: string;
   startMs: number;
   endMs: number;
+}
+
+export interface AnalysisMediaOptions {
+  input: string;
+  output: string;
+  height: number;
+  fps: number;
 }
 
 export function parseFfprobeJson(raw: unknown): MediaProbe {
@@ -90,6 +99,27 @@ export function buildAudioExtractArgs(options: AudioExtractOptions): string[] {
   ];
 }
 
+export function buildAnalysisMediaArgs(options: AnalysisMediaOptions): string[] {
+  return [
+    "-y",
+    "-i",
+    options.input,
+    "-vf",
+    `scale=-2:${options.height},fps=${options.fps}`,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "27",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "128k",
+    options.output
+  ];
+}
+
 export function buildRenderClipArgs(options: RenderClipOptions): string[] {
   const startSeconds = (options.startMs / 1000).toFixed(3);
   const durationSeconds = ((options.endMs - options.startMs) / 1000).toFixed(3);
@@ -115,6 +145,11 @@ export function buildRenderClipArgs(options: RenderClipOptions): string[] {
   ];
 }
 
+export function buildFfmpegProgressArgs(args: string[]): string[] {
+  if (args.length === 0) return ["-progress", "pipe:1", "-nostats"];
+  return [...args.slice(0, -1), "-progress", "pipe:1", "-nostats", args.at(-1)!];
+}
+
 export async function probeMedia(input: string): Promise<MediaProbe> {
   const stdout = await runCommand(resolveBinary("ffprobe"), buildFfprobeArgs(input));
   return parseFfprobeJson(JSON.parse(stdout));
@@ -122,6 +157,67 @@ export async function probeMedia(input: string): Promise<MediaProbe> {
 
 export async function runFfmpeg(args: string[]): Promise<void> {
   await runCommand(resolveBinary("ffmpeg"), args);
+}
+
+export async function runFfmpegWithProgress(
+  args: string[],
+  options: {
+    jobId: string;
+    stage: Extract<PipelineProgressStage, "BUILD_PROXY" | "EXTRACT_AUDIO" | "RENDER">;
+    totalDurationMs: number;
+    onProgress: (progress: ReturnType<typeof parseFfmpegProgress>) => Promise<void> | void;
+    onLog?: (chunk: string) => Promise<void> | void;
+  }
+): Promise<void> {
+  await new Promise<void>((resolveCommand, reject) => {
+    const startedAtMs = Date.now();
+    const child = spawn(resolveBinary("ffmpeg"), buildFfmpegProgressArgs(args), { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let previous = null as ReturnType<typeof parseFfmpegProgress> | null;
+    let lastEmittedAtMs = startedAtMs;
+    let callbackChain = Promise.resolve();
+
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+      const records = stdout.split(/\r?\n\r?\n/);
+      stdout = records.pop() ?? "";
+      for (const record of records) {
+        const nowMs = Date.now();
+        const progress = parseFfmpegProgress(record, { jobId: options.jobId, stage: options.stage, totalDurationMs: options.totalDurationMs, nowMs, startedAtMs });
+        if (shouldEmitProgress(previous, progress, { nowMs, lastEmittedAtMs })) {
+          previous = progress;
+          lastEmittedAtMs = nowMs;
+          callbackChain = callbackChain.then(() => options.onProgress(progress));
+        }
+      }
+    });
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+      if (options.onLog) callbackChain = callbackChain.then(() => options.onLog!(chunk));
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (stdout.trim()) {
+        const nowMs = Date.now();
+        const progress = parseFfmpegProgress(stdout, { jobId: options.jobId, stage: options.stage, totalDurationMs: options.totalDurationMs, nowMs, startedAtMs });
+        if (shouldEmitProgress(previous, progress, { nowMs, lastEmittedAtMs })) {
+          previous = progress;
+          lastEmittedAtMs = nowMs;
+          callbackChain = callbackChain.then(() => options.onProgress(progress));
+        }
+      }
+      callbackChain.then(() => {
+        if (code === 0) {
+          resolveCommand();
+        } else {
+          reject(new Error(`FFMPEG_FAILED: ${stderr.trim() || stdout.trim()}`));
+        }
+      }, reject);
+    });
+  });
 }
 
 export function resolveBinary(name: "ffmpeg" | "ffprobe"): string {

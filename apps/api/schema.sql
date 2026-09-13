@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   job_id TEXT PRIMARY KEY,
   vod_id TEXT NOT NULL,
   stage TEXT NOT NULL,
-  progress REAL NOT NULL,
+  progress REAL,
+  progress_json TEXT,
   error TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
