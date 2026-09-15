@@ -16,6 +16,23 @@ test("resolve requires client secret instead of configured access token", async 
   assert.equal(body.message, "TWITCH_CREDENTIALS_REQUIRED");
 });
 
+test("CORS allowlist accepts production and localhost, rejects unknown origins", async () => {
+  for (const origin of ["https://auto-video-clip-web.vercel.app", "http://localhost:5173"]) {
+    const response = await worker.fetch(new Request("https://example.test/health", { headers: { Origin: origin } }), mockEnv());
+    assert.equal(response.headers.get("access-control-allow-origin"), origin);
+  }
+  const rejected = await worker.fetch(new Request("https://example.test/health", { headers: { Origin: "https://evil.example.com" } }), mockEnv());
+  assert.equal(rejected.headers.has("access-control-allow-origin"), false);
+});
+
+test("CORS preflight returns required methods and headers", async () => {
+  const response = await worker.fetch(new Request("https://example.test/api/channels", { method: "OPTIONS", headers: { Origin: "https://auto-video-clip-web.vercel.app" } }), mockEnv());
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://auto-video-clip-web.vercel.app");
+  assert.match(response.headers.get("access-control-allow-methods") ?? "", /DELETE/);
+  assert.match(response.headers.get("access-control-allow-headers") ?? "", /authorization/);
+});
+
 test("resolve obtains app token then calls Helix", async () => {
   const requests: Request[] = [];
   const previousFetch = globalThis.fetch;
@@ -92,7 +109,7 @@ function mockEnv(overrides: Partial<Record<"TWITCH_CLIENT_ID" | "TWITCH_CLIENT_S
     JOBS: {
       async send() {}
     },
-    ALLOWED_ORIGIN: "*",
+    ALLOWED_ORIGINS: "https://auto-video-clip-web.vercel.app,http://localhost:5173",
     ...overrides
   }) as unknown as Parameters<typeof worker.fetch>[1];
 }

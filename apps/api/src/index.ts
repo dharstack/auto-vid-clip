@@ -4,24 +4,24 @@ interface Env {
   DB: D1Database;
   TWITCH_CLIENT_ID?: string;
   TWITCH_CLIENT_SECRET?: string;
-  ALLOWED_ORIGIN?: string;
+  ALLOWED_ORIGINS?: string;
   AUTO_CLIPPER_WORKER_TOKEN?: string;
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === "OPTIONS") return withCors(null, env);
+    if (request.method === "OPTIONS") return withCors(null, env, 204, request);
     const url = new URL(request.url);
 
     try {
       if (request.method === "GET" && url.pathname === "/health") {
-        return json({ status: "ok" }, env);
+        return json({ status: "ok" }, env, 200, request);
       }
 
       if (url.pathname === "/api/channels") {
         if (request.method === "GET") {
           const rows = await env.DB.prepare("SELECT * FROM watched_channels ORDER BY login ASC").all();
-          return json({ status: "ok", data: rows.results }, env);
+          return json({ status: "ok", data: rows.results }, env, 200, request);
         }
         if (request.method === "POST") {
           if (!env.TWITCH_CLIENT_ID || !env.TWITCH_CLIENT_SECRET) throw new Error("TWITCH_CREDENTIALS_REQUIRED");
@@ -35,7 +35,7 @@ export default {
           const latest = (await getArchivedVods(channel, client, 1))[0] ?? null;
           await env.DB.prepare("INSERT INTO watched_channels (broadcaster_id, login, display_name, auto_process, profile_id, last_vod_id) VALUES (?, ?, ?, ?, ?, ?)")
             .bind(user.id, user.login, user.display_name ?? user.login, body.autoProcess ? 1 : 0, body.profileId ?? "generic", latest?.vodId ?? null).run();
-          return json({ status: "ok", data: { broadcasterId: user.id, login: user.login, displayName: user.display_name ?? user.login, autoProcess: Boolean(body.autoProcess), profileId: body.profileId ?? "generic", lastVodId: latest?.vodId ?? null } }, env, 201);
+          return json({ status: "ok", data: { broadcasterId: user.id, login: user.login, displayName: user.display_name ?? user.login, autoProcess: Boolean(body.autoProcess), profileId: body.profileId ?? "generic", lastVodId: latest?.vodId ?? null } }, env, 201, request);
         }
       }
 
@@ -44,11 +44,11 @@ export default {
         const body = await request.json<{ enabled?: boolean; autoProcess?: boolean; profileId?: string }>();
         await env.DB.prepare("UPDATE watched_channels SET enabled = COALESCE(?, enabled), auto_process = COALESCE(?, auto_process), profile_id = COALESCE(?, profile_id), updated_at = CURRENT_TIMESTAMP WHERE broadcaster_id = ?")
           .bind(body.enabled === undefined ? null : body.enabled ? 1 : 0, body.autoProcess === undefined ? null : body.autoProcess ? 1 : 0, body.profileId ?? null, channelMatch[1]).run();
-        return json({ status: "ok" }, env);
+        return json({ status: "ok" }, env, 200, request);
       }
       if (channelMatch && request.method === "DELETE") {
         await env.DB.prepare("DELETE FROM watched_channels WHERE broadcaster_id = ?").bind(channelMatch[1]).run();
-        return json({ status: "ok" }, env);
+        return json({ status: "ok" }, env, 200, request);
       }
 
       if ((request.method === "POST" && url.pathname === "/api/resolve") || (request.method === "GET" && url.pathname === "/api/vods")) {
@@ -61,11 +61,11 @@ export default {
         const exactVodId = extractTwitchVodId(input);
         if (request.method === "GET") {
           const data = await getArchivedVods(input, client, limit);
-          return json({ status: "ok", data }, env);
+          return json({ status: "ok", data }, env, 200, request);
         }
         const data = exactVodId ? await resolveVodById(exactVodId, client) : await resolveLatestArchivedVod(input, client);
         await env.DB.prepare("INSERT OR REPLACE INTO vods (vod_id, channel, title, duration_seconds) VALUES (?, ?, ?, ?)").bind(data.vodId, data.channel, data.title, data.durationSeconds).run();
-        return json({ status: "ok", data: { ...data, url: data.url ?? `https://www.twitch.tv/videos/${data.vodId}` } }, env);
+        return json({ status: "ok", data: { ...data, url: data.url ?? `https://www.twitch.tv/videos/${data.vodId}` } }, env, 200, request);
       }
 
       if (request.method === "POST" && url.pathname === "/api/jobs") {
@@ -74,7 +74,7 @@ export default {
         const input = `https://www.twitch.tv/videos/${body.vodId}`;
         const jobId = `job-${body.vodId}-${Date.now()}`;
         await env.DB.prepare("INSERT INTO analysis_jobs (job_id, vod_id, input, stage, progress, error) VALUES (?, ?, ?, ?, ?, NULL)").bind(jobId, body.vodId, input, "PENDING", 0).run();
-        return json({ status: "ok", data: { jobId, stage: "PENDING", progress: 0 } }, env);
+        return json({ status: "ok", data: { jobId, stage: "PENDING", progress: 0 } }, env, 200, request);
       }
 
       if (request.method === "POST" && url.pathname === "/api/jobs/claim") {
@@ -97,7 +97,7 @@ export default {
            )
            RETURNING job_id, vod_id, input, stage, progress, error, claimed_by, lease_expires_at`
         ).bind(workerId, leaseExpiresAt, new Date(now).toISOString()).first();
-        return json({ status: "ok", data: row ?? null }, env);
+        return json({ status: "ok", data: row ?? null }, env, 200, request);
       }
 
       const jobMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)$/);
@@ -106,38 +106,41 @@ export default {
         const body = await request.json<{ stage: string; status?: string; progress?: number | null; message?: string; elapsedMs?: number; etaMs?: number | null; error?: string | null }>();
         const progress = { jobId: jobMatch[1], stage: body.stage, status: body.status ?? "running", progress: body.progress ?? null, message: body.message ?? body.stage, elapsedMs: body.elapsedMs ?? 0, ...(body.etaMs === undefined ? {} : { etaMs: body.etaMs }) };
         await env.DB.prepare("UPDATE analysis_jobs SET stage = ?, progress = ?, progress_json = ?, error = ?, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?").bind(body.stage, body.progress ?? null, JSON.stringify(progress), body.error ?? null, jobMatch[1]).run();
-        return json({ status: "ok", data: { ...progress, error: body.error ?? null } }, env);
+        return json({ status: "ok", data: { ...progress, error: body.error ?? null } }, env, 200, request);
       }
 
       if (request.method === "GET" && jobMatch) {
         const row = await env.DB.prepare("SELECT job_id, vod_id, stage, progress, progress_json, error FROM analysis_jobs WHERE job_id = ?").bind(jobMatch[1]).first<{ job_id: string; vod_id: string; stage: string; progress: number | null; progress_json: string | null; error: string | null }>();
-        if (!row) return json({ status: "error", code: "JOB_NOT_FOUND", message: "Job not found" }, env, 404);
+        if (!row) return json({ status: "error", code: "JOB_NOT_FOUND", message: "Job not found" }, env, 404, request);
         const progress = row.progress_json ? JSON.parse(row.progress_json) : { jobId: row.job_id, stage: row.stage, status: row.stage === "COMPLETE" ? "complete" : "running", progress: row.progress, message: row.stage, elapsedMs: 0 };
-        return json({ status: "ok", data: { ...progress, vodId: row.vod_id, error: row.error } }, env);
+        return json({ status: "ok", data: { ...progress, vodId: row.vod_id, error: row.error } }, env, 200, request);
       }
 
-      return json({ status: "error", code: "NOT_FOUND", message: "Not found" }, env, 404);
+      return json({ status: "error", code: "NOT_FOUND", message: "Not found" }, env, 404, request);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const status = message === "WORKER_UNAUTHORIZED" ? 401 : message === "WORKER_ID_REQUIRED" || message === "VOD_ID_INVALID" ? 400 : 500;
-      return json({ status: "error", code: status === 401 ? "UNAUTHORIZED" : "API_ERROR", message }, env, status);
+      return json({ status: "error", code: status === 401 ? "UNAUTHORIZED" : "API_ERROR", message }, env, status, request);
     }
   }
 };
 
-function json(body: unknown, env: Env, status = 200): Response {
-  return withCors(JSON.stringify(body), env, status);
+function json(body: unknown, env: Env, status = 200, request?: Request): Response {
+  return withCors(JSON.stringify(body), env, status, request);
 }
 
-function withCors(body: BodyInit | null, env: Env, status = 204): Response {
+function withCors(body: BodyInit | null, env: Env, status = 204, request?: Request): Response {
+  const origin = request?.headers.get("Origin");
+  const allowedOrigins = (env.ALLOWED_ORIGINS ?? "https://auto-video-clip-web.vercel.app,http://localhost:5173").split(",").map((value) => value.trim()).filter(Boolean);
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
+    "access-control-allow-headers": "content-type, authorization"
+  };
+  if (origin && allowedOrigins.includes(origin)) headers["access-control-allow-origin"] = origin;
   return new Response(body, {
     status,
-    headers: {
-      "content-type": "application/json",
-      "access-control-allow-origin": env.ALLOWED_ORIGIN ?? "http://localhost:5173",
-      "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
-      "access-control-allow-headers": "content-type, authorization"
-    }
+    headers
   });
 }
 

@@ -11,6 +11,6 @@
     }
   ],
   "vars": {
-    "ALLOWED_ORIGIN": "http://localhost:5173"
+    "ALLOWED_ORIGINS": "https://auto-video-clip-web.vercel.app,http://localhost:5173"
   }
 }
