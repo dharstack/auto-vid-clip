@@ -9,13 +9,14 @@
     "tools/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build -w @auto-clipper/contracts && npm run build -w @auto-clipper/config && npm run build -w @auto-clipper/jobs && npm run build -w @auto-clipper/media && npm run build -w @auto-clipper/media-tools && npm run build -w @auto-clipper/twitch && npm run build -w @auto-clipper/candidates && npm run build -w @auto-clipper/detectors && npm run build -w @auto-clipper/scoring && npm run build -w @auto-clipper/render-plan && npm run build -w @auto-clipper/tooling && npm run build --workspaces --if-present",
     "build:api": "npm run build -w @auto-clipper/api",
     "build:web": "npm run build -w @auto-clipper/web",
     "deploy:cloudflare": "npm run deploy -w @auto-clipper/api",
     "deploy:vercel": "cd apps/web && vercel --prod",
     "local:pipeline": "node tools/pipeline-run/dist/src/index.js",
     "local:clean": "node tools/job-clean/dist/src/index.js",
+    "local:select": "node tools/local-select/dist/src/index.js",
     "local:worker": "node tools/local-worker/dist/src/index.js",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"

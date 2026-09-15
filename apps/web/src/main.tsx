@@ -20,6 +20,7 @@ function App() {
   const [selectedVod, setSelectedVod] = useState<ResolveData | null>(null);
   const [job, setJob] = useState<{ jobId: string; stage: string; progress: number | null; error?: string | null } | null>(null);
   const [message, setMessage] = useState("Ready");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!job || job.stage === "COMPLETE" || job.stage === "FAILED") return;
@@ -33,7 +34,8 @@ function App() {
   }, [job?.jobId, job?.stage]);
 
   async function resolveVod() {
-    setMessage("Resolving VOD");
+    setBusy(true); setMessage("Resolving VOD");
+    try {
     if (!input.trim().match(/^\d+$/) && !input.includes("/videos/")) {
       const response = await fetch(`${apiBase}/api/vods?channel=${encodeURIComponent(input)}&limit=20`);
       const body = await response.json();
@@ -55,9 +57,13 @@ function App() {
     setSelectedVod(body.data);
     setVods([]);
     setMessage("VOD resolved");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to resolve VOD"); }
+    finally { setBusy(false); }
   }
 
   async function startJob() {
+    setBusy(true);
+    try {
     const chosen = selectedVod ?? (input.match(/^\d+$/) ? null : undefined);
     if (input.trim().match(/^\d+$/) && !selectedVod) {
       const response = await fetch(`${apiBase}/api/resolve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }) });
@@ -75,12 +81,14 @@ function App() {
     const response = await fetch(`${apiBase}/api/jobs`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ vodId, input })
+      body: JSON.stringify({ vodId })
     });
     const body = await response.json();
     if (body.status !== "ok") throw new Error(body.message);
     setJob(body.data);
     setMessage("Job queued");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to start job"); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -95,10 +103,12 @@ function App() {
 
       <section className="workspace">
         <div className="inputRow">
-          <input value={input} onChange={(event) => setInput(event.target.value)} />
-          <button onClick={resolveVod}>Resolve</button>
-          <button onClick={startJob}>Start Job</button>
+          <label className="srOnly" htmlFor="vod-input">Twitch channel, VOD URL, VOD ID, or local file</label>
+          <input id="vod-input" value={input} onChange={(event) => setInput(event.target.value)} aria-describedby="input-help" />
+          <button onClick={resolveVod} disabled={busy}>Resolve</button>
+          <button onClick={startJob} disabled={busy || !selectedVod && input.includes("twitch.tv")}>Start Job</button>
         </div>
+        <p id="input-help" className="help">Select historical VOD to lock exact VOD ID before processing.</p>
 
         <div className="grid">
           {vods.length ? <Panel title="Recent VODs">
@@ -131,7 +141,7 @@ function App() {
           </Panel>
 
           <Panel title="Local Processing">
-            <pre>{`npm run local:pipeline -- ${input}`}</pre>
+            <pre>{`npm run local:pipeline -- ${selectedVod ? `https://www.twitch.tv/videos/${selectedVod.vodId}` : input}`}</pre>
             <p>Use this command on local PC to acquire, analyze, score, and render clips.</p>
           </Panel>
         </div>

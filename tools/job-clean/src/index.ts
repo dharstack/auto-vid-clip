@@ -1,4 +1,4 @@
-import { access, lstat, mkdir, readdir, readFile, realpath, rm } from "node:fs/promises";
+import { access, lstat, readdir, readFile, realpath, rm } from "node:fs/promises";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { isAbsolute, join, relative, resolve } from "node:path";
@@ -27,9 +27,9 @@ async function bytes(path: string): Promise<number> {
 async function json(path: string): Promise<any | undefined> { try { return JSON.parse(await readFile(path, "utf8")); } catch { return undefined; } }
 async function jobStatus(job: string): Promise<"eligible" | "skipped"> {
   const progress = await json(join(job, "progress.json"));
-  if (progress?.status === "complete" || progress?.stage === "COMPLETE") return "eligible";
+  if (progress?.stage === "COMPLETE") return "eligible";
   const manifest = await json(join(job, "manifest.json"));
-  if (manifest?.stages && Object.values(manifest.stages).every((value) => value === "complete")) return "eligible";
+  if (manifest?.stages && Object.keys(manifest.stages).length > 0 && Object.values(manifest.stages).every((value) => value === "complete")) return "eligible";
   return "skipped";
 }
 async function oneJob(root: string, jobId: string, policy: CleanupPolicy, force: boolean): Promise<CleanupJob> {
@@ -48,7 +48,9 @@ async function oneJob(root: string, jobId: string, policy: CleanupPolicy, force:
   return { jobId, status: "eligible", policy, delete: del, keep, bytesRecoverable: del.reduce((sum, item) => sum + item.bytes, 0) };
 }
 export async function buildCleanupPlan(options: { workRoot: string; jobId?: string; all?: boolean; purge?: boolean; dryRun?: boolean; force?: boolean }): Promise<CleanupPlan> {
-  let root = resolve(options.workRoot); await mkdir(root, { recursive: true }); root = await realpath(root);
+  let root = resolve(options.workRoot);
+  if (!(await access(join(root, ".auto-clipper-root")).then(() => true).catch(() => false))) throw new Error("CLEAN_WORK_ROOT_UNRECOGNIZED");
+  root = await realpath(root);
   if (!!options.jobId === !!options.all) throw new Error(options.jobId ? "CLEAN_SCOPE_CONFLICT" : "CLEAN_SCOPE_REQUIRED");
   const policy = options.purge ? "purge" : "intermediates";
   let ids = options.jobId ? [options.jobId] : (await readdir(root, { withFileTypes: true })).filter((entry) => entry.isDirectory() && JOB_RE.test(entry.name) && !entry.isSymbolicLink()).map((entry) => entry.name).sort();
@@ -68,7 +70,14 @@ function human(value: number) { const units = ["B", "KiB", "MiB", "GiB"]; let i 
 async function main() {
   const argv = process.argv.slice(2), value = (flag: string) => { const i = argv.indexOf(flag); return i >= 0 ? argv[i + 1] : undefined; }, has = (flag: string) => argv.includes(flag);
   const plan = await buildCleanupPlan({ workRoot: value("--work-root") ?? "work", jobId: value("--job"), all: has("--all"), purge: has("--purge"), dryRun: has("--dry-run"), force: has("--force") });
-  if (has("--purge") && !has("--dry-run")) { if (!has("--yes") && !process.stdin.isTTY) throw new Error("CLEAN_CONFIRMATION_REQUIRED"); if (!has("--yes") && process.stdin.isTTY) { const answer = await createInterface({ input: process.stdin, output: process.stdout }).question("Type DELETE to continue: "); if (answer !== "DELETE") return; } }
+  if (has("--purge") && !has("--dry-run")) {
+    if (!has("--yes") && !process.stdin.isTTY) throw new Error("CLEAN_CONFIRMATION_REQUIRED");
+    if (!has("--yes") && process.stdin.isTTY) {
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      try { const answer = await rl.question("Type DELETE to continue: "); if (answer !== "DELETE") return; }
+      finally { rl.close(); }
+    }
+  }
   const skipped = plan.jobs.filter((job) => job.status === "skipped").length;
   const deleted = has("--dry-run") ? 0 : await executeCleanupPlan(plan);
   const result = { status: "ok", mode: has("--all") ? "all" : "job", policy: plan.policy, dryRun: !!plan.dryRun, jobsEligible: plan.jobs.filter((job) => job.status === "eligible").length, jobsSkipped: skipped, bytesRecoverable: plan.bytesRecoverable, bytesDeleted: deleted };

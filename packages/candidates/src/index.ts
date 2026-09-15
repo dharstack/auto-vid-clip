@@ -2,17 +2,20 @@ import type { Candidate, CandidateCategory, GameplayEvent } from "@auto-clipper/
 
 export interface CandidateBuildOptions {
   mergeWindowMs?: number;
+  maxCandidateDurationMs?: number;
 }
 
 export function buildCandidates(events: GameplayEvent[], options: CandidateBuildOptions = {}): Candidate[] {
   const mergeWindowMs = options.mergeWindowMs ?? 45000;
+  const maxCandidateDurationMs = options.maxCandidateDurationMs ?? 120000;
   const sorted = [...events].sort((left, right) => left.startMs - right.startMs);
   const groups: GameplayEvent[][] = [];
 
   for (const event of sorted) {
     const last = groups[groups.length - 1];
     const lastEnd = last ? Math.max(...last.map((item) => item.endMs)) : 0;
-    if (!last || event.startMs > lastEnd + mergeWindowMs) {
+    const firstStart = last?.[0]?.startMs ?? 0;
+    if (!last || event.startMs > lastEnd + mergeWindowMs || event.endMs - firstStart > maxCandidateDurationMs) {
       groups.push([event]);
     } else {
       last.push(event);

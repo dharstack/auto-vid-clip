@@ -6,6 +6,7 @@ interface Env {
   TWITCH_CLIENT_ID?: string;
   TWITCH_CLIENT_SECRET?: string;
   ALLOWED_ORIGIN?: string;
+  AUTO_CLIPPER_WORKER_TOKEN?: string;
 }
 
 export default {
@@ -36,20 +37,24 @@ export default {
       }
 
       if (request.method === "POST" && url.pathname === "/api/jobs") {
-        const body = await request.json<{ vodId: string; input: string }>();
+        const body = await request.json<{ vodId: string }>();
+        if (!/^\d+$/.test(body.vodId)) throw new Error("VOD_ID_INVALID");
+        const input = `https://www.twitch.tv/videos/${body.vodId}`;
         const jobId = `job-${body.vodId}-${Date.now()}`;
-        await env.DB.prepare("INSERT INTO analysis_jobs (job_id, vod_id, input, stage, progress, error) VALUES (?, ?, ?, ?, ?, NULL)").bind(jobId, body.vodId, body.input, "PENDING", 0).run();
-        await env.JOBS.send({ jobId, vodId: body.vodId, input: body.input });
+        await env.DB.prepare("INSERT INTO analysis_jobs (job_id, vod_id, input, stage, progress, error) VALUES (?, ?, ?, ?, ?, NULL)").bind(jobId, body.vodId, input, "PENDING", 0).run();
+        await env.JOBS.send({ jobId, vodId: body.vodId, input });
         return json({ status: "ok", data: { jobId, stage: "PENDING", progress: 0 } }, env);
       }
 
       if (request.method === "GET" && url.pathname === "/api/jobs/next") {
+        requireWorker(request, env);
         const row = await env.DB.prepare("SELECT job_id, vod_id, input, stage, progress, error FROM analysis_jobs WHERE stage = ? ORDER BY created_at ASC LIMIT 1").bind("PENDING").first();
         return json({ status: "ok", data: row ?? null }, env);
       }
 
       const jobMatch = url.pathname.match(/^\/api\/jobs\/([^/]+)$/);
       if (request.method === "PATCH" && jobMatch) {
+        requireWorker(request, env);
         const body = await request.json<{ stage: string; status?: string; progress?: number | null; message?: string; elapsedMs?: number; etaMs?: number | null; error?: string | null }>();
         const progress = { jobId: jobMatch[1], stage: body.stage, status: body.status ?? "running", progress: body.progress ?? null, message: body.message ?? body.stage, elapsedMs: body.elapsedMs ?? 0, ...(body.etaMs === undefined ? {} : { etaMs: body.etaMs }) };
         await env.DB.prepare("UPDATE analysis_jobs SET stage = ?, progress = ?, progress_json = ?, error = ?, updated_at = CURRENT_TIMESTAMP WHERE job_id = ?").bind(body.stage, body.progress ?? null, JSON.stringify(progress), body.error ?? null, jobMatch[1]).run();
@@ -79,9 +84,14 @@ function withCors(body: BodyInit | null, env: Env, status = 204): Response {
     status,
     headers: {
       "content-type": "application/json",
-      "access-control-allow-origin": env.ALLOWED_ORIGIN ?? "*",
+      "access-control-allow-origin": env.ALLOWED_ORIGIN ?? "http://localhost:5173",
       "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
-      "access-control-allow-headers": "content-type"
+      "access-control-allow-headers": "content-type, authorization"
     }
   });
+}
+
+function requireWorker(request: Request, env: Env): void {
+  const expected = env.AUTO_CLIPPER_WORKER_TOKEN;
+  if (!expected || request.headers.get("Authorization") !== `Bearer ${expected}`) throw new Error("WORKER_UNAUTHORIZED");
 }

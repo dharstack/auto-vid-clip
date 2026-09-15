@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 const apiBaseUrl = process.env.AUTO_CLIPPER_API_BASE_URL ?? "http://localhost:8787";
+const workerToken = process.env.AUTO_CLIPPER_WORKER_TOKEN;
 const pollMs = Number(process.env.AUTO_CLIPPER_WORKER_POLL_MS ?? 5000);
 const pipelinePath = join(process.cwd(), "tools", "pipeline-run", "dist", "src", "index.js");
 
@@ -13,7 +14,7 @@ if (!existsSync(pipelinePath)) {
 }
 
 while (true) {
-  const response = await fetch(`${apiBaseUrl}/api/jobs/next`);
+  const response = await fetch(`${apiBaseUrl}/api/jobs/next`, { headers: workerToken ? { Authorization: `Bearer ${workerToken}` } : {} });
   const body = await response.json() as { data?: { job_id: string; input?: string; vod_id: string } | null };
   const job = body.data;
   if (job?.input) {
@@ -33,5 +34,5 @@ function runPipeline(jobId: string, input: string): Promise<number> {
 }
 
 async function updateJob(jobId: string, body: Record<string, unknown>): Promise<void> {
-  await fetch(`${apiBaseUrl}/api/jobs/${jobId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  await fetch(`${apiBaseUrl}/api/jobs/${jobId}`, { method: "PATCH", headers: { "content-type": "application/json", ...(workerToken ? { Authorization: `Bearer ${workerToken}` } : {}) }, body: JSON.stringify(body) });
 }

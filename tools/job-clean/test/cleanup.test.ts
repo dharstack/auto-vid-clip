@@ -7,6 +7,7 @@ import { buildCleanupPlan, executeCleanupPlan } from "../src/index.js";
 
 async function fixture() {
   const root = await mkdtemp(join(tmpdir(), "auto-clip-clean-"));
+  await writeFile(join(root, ".auto-clipper-root"), "auto-clipper\n");
   const job = join(root, "job-123");
   await mkdir(join(job, "exports"), { recursive: true });
   await mkdir(join(job, "ranges"));
@@ -41,7 +42,24 @@ describe("cleanup planner", () => {
 
   test("rejects an unrecognized job directory", async () => {
     const root = await mkdtemp(join(tmpdir(), "auto-clip-clean-"));
+    await writeFile(join(root, ".auto-clipper-root"), "auto-clipper\n");
     await mkdir(join(root, "random-folder"));
     await assert.rejects(buildCleanupPlan({ workRoot: root, jobId: "random-folder" }), /CLEAN_JOB_NOT_FOUND/);
+  });
+
+  test("does not treat an intermediate complete stage as whole-job complete", async () => {
+    const root = await mkdtemp(join(tmpdir(), "auto-clip-clean-"));
+    await writeFile(join(root, ".auto-clipper-root"), "auto-clipper\n");
+    const job = join(root, "job-456");
+    await mkdir(job);
+    await writeFile(join(job, "manifest.json"), JSON.stringify({ jobId: "job-456", stages: { DETECT: "complete", RENDER: "pending" } }));
+    await writeFile(join(job, "progress.json"), JSON.stringify({ stage: "DETECT", status: "complete" }));
+    const plan = await buildCleanupPlan({ workRoot: root, jobId: "job-456" });
+    assert.equal(plan.jobs[0].status, "skipped");
+  });
+
+  test("rejects missing work-root sentinel", async () => {
+    const root = await mkdtemp(join(tmpdir(), "auto-clip-clean-"));
+    await assert.rejects(buildCleanupPlan({ workRoot: root, all: true }), /CLEAN_WORK_ROOT_UNRECOGNIZED/);
   });
 });

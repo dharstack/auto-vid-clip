@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { appendFile, copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { appendFile, copyFile, mkdir, readFile, readdir, writeFile, access } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { buildCandidates } from "@auto-clipper/candidates";
 import { detectEventsFromMedia } from "@auto-clipper/detectors";
@@ -44,6 +44,8 @@ async function main(): Promise<void> {
     cliCompletedStages = [];
     cliLastPrintedStage = null;
     const workRoot = flagValue(argv, "--work-root") ?? "work";
+    await mkdir(workRoot, { recursive: true });
+    if (!(await access(join(workRoot, ".auto-clipper-root")).then(() => true).catch(() => false))) await writeFile(join(workRoot, ".auto-clipper-root"), "auto-clipper\n", { flag: "wx" }).catch(() => undefined);
     const apiBaseUrl = flagValue(argv, "--api-base-url") ?? process.env.AUTO_CLIPPER_API_BASE_URL;
     const resolvedInput = await resolvePipelineInput(input, apiBaseUrl);
     const vodId = resolvedInput.vodId;
@@ -148,6 +150,8 @@ async function main(): Promise<void> {
       ? JSON.parse(await readFile(join(jobDir, "render-plan.json"), "utf8"))
       : buildRenderPlan(candidates, scores, { sourceDurationMs: probe.durationMs });
     await writeJson(join(jobDir, "render-plan.json"), plan);
+    await writeProgress(jobDir, { jobId, stage: "BUILD_CANDIDATES", status: "complete", progress: 1, message: "Candidates ready", elapsedMs: 0 });
+    await writeProgress(jobDir, { jobId, stage: "SCORE", status: "complete", progress: 1, message: "Scores ready", elapsedMs: 0 });
     await writeProgress(jobDir, { jobId, stage: "BUILD_RENDER_PLAN", status: "complete", progress: 1, message: "Render plan ready", elapsedMs: 0 });
     manifest = updateManifestStage(updateManifestStage(updateManifestStage(manifest, "candidate", "complete"), "score", "complete"), "renderPlan", "complete");
     await writeJson(join(jobDir, "manifest.json"), manifest);
@@ -179,15 +183,15 @@ async function main(): Promise<void> {
         }
       }
     }
-    await writeProgress(jobDir, { jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: 0 });
     manifest = updateManifestStage(updateManifestStage(manifest, "resolve", "complete"), "render", "complete");
     await writeJson(join(jobDir, "manifest.json"), manifest);
     if (cleanup && !dryRun) {
-      if ((await readdir(exportsDir)).length === 0) throw new Error("CLEANUP_EXPORTS_EMPTY");
       const cleanupPlan = await buildCleanupPlan({ workRoot, jobId });
       const bytesDeleted = await executeCleanupPlan(cleanupPlan);
-      await writeJson(join(jobDir, "manifest.json"), { ...manifest, cleanup: { status: "complete", policy: "intermediates", completedAt: new Date().toISOString(), bytesDeleted } });
+      manifest = { ...manifest, cleanup: { status: "complete", policy: "intermediates", completedAt: new Date().toISOString(), bytesDeleted } };
     }
+    await writeProgress(jobDir, { jobId, stage: "COMPLETE", status: "complete", progress: 1, message: plan.clips.length ? "Pipeline complete" : "No candidates met the render threshold", elapsedMs: 0 });
+    await writeJson(join(jobDir, "manifest.json"), manifest);
 
     if (cliJson) process.stdout.write(`${JSON.stringify({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, manifest: join(jobDir, "manifest.json") } })}\n`);
     else cliRenderer?.update({ jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: Date.now() - cliStartedAtMs, updatedAt: new Date().toISOString() }, cliCompletedStages, cliHeader);

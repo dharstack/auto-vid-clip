@@ -28,3 +28,13 @@ test("suppresses overlapping duplicate candidates", () => {
   assert.equal(candidates.length, 1);
   assert.equal(candidates[0].endMs, 36000);
 });
+
+test("bounds transitive merge windows", () => {
+  const candidates = buildCandidates([
+    { type: "COMBAT_SPIKE", startMs: 0, endMs: 1000, confidence: 1 },
+    { type: "COMBAT_SPIKE", startMs: 40000, endMs: 41000, confidence: 1 },
+    { type: "COMBAT_SPIKE", startMs: 80000, endMs: 81000, confidence: 1 },
+    { type: "COMBAT_SPIKE", startMs: 120000, endMs: 121000, confidence: 1 }
+  ], { maxCandidateDurationMs: 90000 });
+  assert.ok(candidates.every((candidate) => candidate.endMs - candidate.startMs <= 90000));
+});

@@ -1,0 +1,12 @@
+{
+  "name": "@auto-clipper/tool-local-select",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "local-select": "dist/src/index.js" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "dependencies": {
+    "@auto-clipper/candidates": "0.1.0",
+    "@auto-clipper/render-plan": "0.1.0",
+    "@auto-clipper/scoring": "0.1.0"
+  }
+}
