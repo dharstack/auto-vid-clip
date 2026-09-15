@@ -9,7 +9,8 @@
     { "path": "../../packages/media-tools" },
     { "path": "../../packages/render-plan" },
     { "path": "../../packages/scoring" },
-    { "path": "../../packages/tooling" }
+    { "path": "../../packages/tooling" },
+    { "path": "../job-clean" }
   ],
   "include": ["src/**/*.ts"]
 }

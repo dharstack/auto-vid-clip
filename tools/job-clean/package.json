@@ -1,0 +1,13 @@
+{
+  "name": "@auto-clipper/tool-job-clean",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "bin": { "job-clean": "dist/src/index.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test dist/test/cleanup.test.js"
+  }
+}

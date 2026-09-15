@@ -58,11 +58,56 @@ export function formatCliProgress(progress: PipelineProgress, completedStages: s
   return lines.join("\n");
 }
 
+export interface PipelineProgressRendererOptions {
+  isTTY?: boolean;
+  write?: (value: string) => void;
+  now?: () => number;
+}
+
+export class PipelineProgressRenderer {
+  private readonly isTTY: boolean;
+  private readonly write: (value: string) => void;
+  private readonly now: () => number;
+  private lastFallbackAt = 0;
+
+  constructor(options: PipelineProgressRendererOptions = {}) {
+    this.isTTY = options.isTTY ?? Boolean(process.stdout.isTTY);
+    this.write = options.write ?? ((value) => process.stdout.write(value));
+    this.now = options.now ?? Date.now;
+  }
+
+  update(progress: PipelineProgress, completedStages: string[], header: { vod?: string; durationMs?: number } = {}): void {
+    const output = formatCliProgress(progress, completedStages, header);
+    if (this.isTTY) {
+      this.write(`\x1b[H\x1b[0J${output}`);
+      return;
+    }
+    if (progress.status === "complete" || progress.status === "failed" || progress.stage !== this.lastStage || this.now() - this.lastFallbackAt >= 5000) {
+      this.write(`[${progress.status === "complete" ? "x" : ">"}] ${progress.message}${formatRunningProgress(progress)}\n`);
+      this.lastFallbackAt = this.now();
+    }
+    this.lastStage = progress.stage;
+  }
+
+  failure(reason: string, logPath: string, resumeCommand: string): void {
+    this.write(`\nPipeline failed: ${reason}\nResume: ${resumeCommand}\nLog: ${logPath}\n`);
+  }
+
+  private lastStage: string | null = null;
+}
+
 function formatRunningProgress(progress: PipelineProgress): string {
-  const percent = progress.progress === null || progress.progress === undefined ? "" : ` ${Math.round(progress.progress * 100)}%`;
+  const percent = progress.progress === null || progress.progress === undefined ? "" : ` ${progressBar(progress.progress)} ${Math.round(progress.progress * 100)}%`;
   const details = progress.speedBytesPerSecond ? ` ${formatBytes(progress.speedBytesPerSecond)}/s` : "";
+  const realtime = progress.speedRealtime ? ` ${progress.speedRealtime}x` : "";
   const eta = progress.etaMs === null || progress.etaMs === undefined ? "" : ` ETA ${formatElapsed(progress.etaMs)}`;
-  return `${percent}${details}${eta}`;
+  return `${percent}${details}${realtime}${eta}`;
+}
+
+function progressBar(progress: number): string {
+  const width = 10;
+  const filled = Math.round(Math.max(0, Math.min(1, progress)) * width);
+  return `[${"█".repeat(filled)}${"░".repeat(width - filled)}]`;
 }
 
 function formatElapsed(ms: number): string {

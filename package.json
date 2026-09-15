@@ -15,6 +15,7 @@
     "deploy:cloudflare": "npm run deploy -w @auto-clipper/api",
     "deploy:vercel": "cd apps/web && vercel --prod",
     "local:pipeline": "node tools/pipeline-run/dist/src/index.js",
+    "local:clean": "node tools/job-clean/dist/src/index.js",
     "local:worker": "node tools/local-worker/dist/src/index.js",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"

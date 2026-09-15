@@ -12,6 +12,7 @@
     "@auto-clipper/media-tools": "0.1.0",
     "@auto-clipper/render-plan": "0.1.0",
     "@auto-clipper/scoring": "0.1.0",
-    "@auto-clipper/tooling": "0.1.0"
+    "@auto-clipper/tooling": "0.1.0",
+    "@auto-clipper/tool-job-clean": "0.1.0"
   }
 }

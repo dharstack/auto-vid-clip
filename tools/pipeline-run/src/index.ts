@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { appendFile, copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, copyFile, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { buildCandidates } from "@auto-clipper/candidates";
 import { detectEventsFromMedia } from "@auto-clipper/detectors";
@@ -10,14 +10,22 @@ import { buildYtDlpAnalysisFormatSelector, buildYtDlpSourceRangeArgs, classifyPi
 import { buildAnalysisMediaArgs, buildAudioExtractArgs, buildProxyBuildArgs, buildRenderClipArgs, parseYtDlpProgressLine, probeMedia, runFfmpegWithProgress, shouldEmitProgress } from "@auto-clipper/media-tools";
 import { buildRenderPlan } from "@auto-clipper/render-plan";
 import { scoreCandidates } from "@auto-clipper/scoring";
-import { flagValue, formatCliProgress, hasFlag, positionalArg, printToolResult, toToolError } from "@auto-clipper/tooling";
+import { flagValue, hasFlag, PipelineProgressRenderer, positionalArg, toToolError } from "@auto-clipper/tooling";
+import { buildCleanupPlan, executeCleanupPlan } from "@auto-clipper/tool-job-clean";
 
 let remoteProgressEndpoint: string | undefined;
 let cliJson = false;
+let cliVerbose = false;
+let cliInterrupted = false;
+let cliRenderer: PipelineProgressRenderer | undefined;
+let cliJobDir: string | undefined;
+let cliJobId: string | undefined;
+let cliInput: string | undefined;
 let cliCompletedStages: string[] = [];
 let cliHeader: { vod?: string; durationMs?: number } = {};
 let cliStartedAtMs = 0;
 let cliLastPrintedStage: string | null = null;
+let activeChild: ReturnType<typeof spawn> | undefined;
 
 async function main(): Promise<void> {
   try {
@@ -26,7 +34,12 @@ async function main(): Promise<void> {
     if (!input) throw new Error("ARG_REQUIRED: VOD URL or local media path");
 
     const dryRun = hasFlag(argv, "--dry-run");
+    const cleanup = hasFlag(argv, "--cleanup");
     cliJson = hasFlag(argv, "--json");
+    cliVerbose = hasFlag(argv, "--verbose");
+    cliInput = input;
+    cliInterrupted = false;
+    cliRenderer = cliJson ? undefined : new PipelineProgressRenderer();
     cliStartedAtMs = Date.now();
     cliCompletedStages = [];
     cliLastPrintedStage = null;
@@ -35,9 +48,11 @@ async function main(): Promise<void> {
     const resolvedInput = await resolvePipelineInput(input, apiBaseUrl);
     const vodId = resolvedInput.vodId;
     const jobId = flagValue(argv, "--job-id") ?? `job-${vodId}`;
+    cliJobId = jobId;
     cliHeader = { vod: vodId };
     remoteProgressEndpoint = apiBaseUrl ? `${apiBaseUrl.replace(/\/$/, "")}/api/jobs/${jobId}` : undefined;
     const jobDir = join(workRoot, jobId);
+    cliJobDir = jobDir;
     const exportsDir = join(jobDir, "exports");
     await mkdir(exportsDir, { recursive: true });
     await writeProgress(jobDir, { jobId, stage: "RESOLVE", status: "complete", progress: 1, message: "Resolved input", elapsedMs: 0 });
@@ -167,15 +182,33 @@ async function main(): Promise<void> {
     await writeProgress(jobDir, { jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: 0 });
     manifest = updateManifestStage(updateManifestStage(manifest, "resolve", "complete"), "render", "complete");
     await writeJson(join(jobDir, "manifest.json"), manifest);
+    if (cleanup && !dryRun) {
+      if ((await readdir(exportsDir)).length === 0) throw new Error("CLEANUP_EXPORTS_EMPTY");
+      const cleanupPlan = await buildCleanupPlan({ workRoot, jobId });
+      const bytesDeleted = await executeCleanupPlan(cleanupPlan);
+      await writeJson(join(jobDir, "manifest.json"), { ...manifest, cleanup: { status: "complete", policy: "intermediates", completedAt: new Date().toISOString(), bytesDeleted } });
+    }
 
-    if (cliJson) printToolResult({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, manifest: join(jobDir, "manifest.json") } });
-    else process.stdout.write(`${formatCliProgress({ jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: Date.now() - cliStartedAtMs, updatedAt: new Date().toISOString() }, cliCompletedStages, cliHeader)}\n`);
+    if (cliJson) process.stdout.write(`${JSON.stringify({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, manifest: join(jobDir, "manifest.json") } })}\n`);
+    else cliRenderer?.update({ jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: Date.now() - cliStartedAtMs, updatedAt: new Date().toISOString() }, cliCompletedStages, cliHeader);
   } catch (error) {
-    if (cliJson) printToolResult(toToolError(error, "PIPELINE_RUN_FAILED"));
-    else process.stderr.write(`Pipeline failed: ${error instanceof Error ? error.message : String(error)}\n`);
+    if (cliJson) process.stdout.write(`${JSON.stringify(toToolError(error, "PIPELINE_RUN_FAILED"))}\n`);
+    else {
+      const reason = cliInterrupted ? "INTERRUPTED: stopped by Ctrl+C" : error instanceof Error ? error.message : String(error);
+      const logPath = cliJobDir ? join(cliJobDir, "logs") : "work/<job-id>/logs";
+      const resume = `npm run local:pipeline -- ${cliInput ?? "<input>"}${cliJobId ? ` --job-id ${cliJobId}` : ""}`;
+      if (cliJobDir && cliJobId) await writeJson(join(cliJobDir, "progress.json"), { jobId: cliJobId, stage: "FAILED", status: "failed", progress: null, message: reason, elapsedMs: Math.max(0, Date.now() - cliStartedAtMs), updatedAt: new Date().toISOString(), resumable: true, resumeCommand: resume });
+      cliRenderer?.failure(reason, logPath, resume);
+      if (cliVerbose) process.stderr.write(`Detailed logs: ${logPath}\n`);
+    }
     process.exitCode = 1;
   }
 }
+
+process.once("SIGINT", () => {
+  cliInterrupted = true;
+  activeChild?.kill("SIGINT");
+});
 
 async function writeJson(path: string, value: unknown): Promise<void> {
   await writeFile(path, JSON.stringify(value, null, 2));
@@ -213,15 +246,12 @@ async function writeProgress(
 ): Promise<void> {
   const snapshot = { ...progress, elapsedMs: progress.elapsedMs || Math.max(0, Date.now() - cliStartedAtMs), updatedAt: new Date().toISOString() };
   await writeJson(join(jobDir, "progress.json"), snapshot);
-  if (!cliJson) {
+  if (cliJson) {
+    process.stdout.write(`${JSON.stringify({ type: "pipeline.progress", ...snapshot })}\n`);
+  } else {
     if (snapshot.status === "complete" && !cliCompletedStages.includes(snapshot.stage)) cliCompletedStages.push(snapshot.stage);
-    if (process.stdout.isTTY) {
-      process.stdout.write("\x1b[2J\x1b[H");
-      process.stdout.write(formatCliProgress(snapshot as Parameters<typeof formatCliProgress>[0], cliCompletedStages, cliHeader));
-    } else if (cliLastPrintedStage !== snapshot.stage) {
-      cliLastPrintedStage = snapshot.stage;
-      process.stdout.write(`[${snapshot.status === "complete" ? "x" : ">"}] ${snapshot.message}\n`);
-    }
+    cliRenderer?.update(snapshot as Parameters<NonNullable<typeof cliRenderer>["update"]>[0], cliCompletedStages, cliHeader);
+    if (cliVerbose && snapshot.message) process.stderr.write(`[${snapshot.stage}] ${snapshot.message}\n`);
   }
   if (remoteProgressEndpoint) {
     await globalThis.fetch(remoteProgressEndpoint, {
@@ -259,6 +289,7 @@ async function runYtDlpWithProgress(jobDir: string, command: string, args: strin
   await new Promise<void>((resolveCommand, reject) => {
     const startedAtMs = Date.now();
     const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    activeChild = child;
     let stderr = "";
     let pending = "";
     let previous = null as Awaited<ReturnType<typeof parseYtDlpProgressLine>>;
@@ -287,6 +318,7 @@ async function runYtDlpWithProgress(jobDir: string, command: string, args: strin
     child.stderr.on("data", (chunk: string) => { stderr += chunk; handle(chunk); });
     child.on("error", reject);
     child.on("close", (code) => {
+      activeChild = undefined;
       if (pending) handle(`${pending}\n`);
       callbackChain.then(() => code === 0 ? resolveCommand() : reject(new Error(`YTDLP_FAILED: ${stderr.trim()}`)), reject);
     });
