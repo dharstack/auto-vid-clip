@@ -45,7 +45,7 @@ export function toToolError(error: unknown, code: string): ToolError {
 }
 
 export function formatCliProgress(progress: PipelineProgress, completedStages: string[] = [], header: { vod?: string; durationMs?: number } = {}): string {
-  const lines = ["Mortal Shell II Auto-Clipper", "", header.vod ? `VOD: ${header.vod}` : "", header.durationMs ? `Duration: ${formatElapsed(header.durationMs)}` : "", `Job: ${progress.jobId}`, "", "----------------------------------------"];
+  const lines = ["Auto Clipper", "", header.vod ? `VOD: ${header.vod}` : "", header.durationMs ? `Duration: ${formatElapsed(header.durationMs)}` : "", `Job: ${progress.jobId}`, "", "----------------------------------------"];
   for (const [stage, label] of CLI_STAGES) {
     const marker = stage === progress.stage && progress.status === "running" ? ">" : completedStages.includes(stage) || (stage === progress.stage && progress.status === "complete") ? "x" : "o";
     const suffix = stage === progress.stage && progress.status === "running" ? formatRunningProgress(progress) : "";

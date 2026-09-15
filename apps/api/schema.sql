@@ -5,6 +5,20 @@ CREATE TABLE IF NOT EXISTS channels (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS watched_channels (
+  broadcaster_id TEXT PRIMARY KEY,
+  login TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  auto_process INTEGER NOT NULL DEFAULT 0,
+  profile_id TEXT NOT NULL DEFAULT 'generic',
+  last_vod_id TEXT,
+  last_reconciled_at TEXT,
+  eventsub_subscription_id TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS vods (
   vod_id TEXT PRIMARY KEY,
   channel TEXT NOT NULL,
@@ -21,6 +35,11 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   progress REAL,
   progress_json TEXT,
   error TEXT,
+  claimed_by TEXT,
+  claimed_at TEXT,
+  lease_expires_at TEXT,
+  last_heartbeat_at TEXT,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

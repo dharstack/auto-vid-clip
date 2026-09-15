@@ -98,7 +98,7 @@ function App() {
         <nav aria-label="Primary navigation">
           <a className="navItem active" href="#dashboard">▦ <span>Dashboard</span></a>
           <a className="navItem" href="#jobs">◷ <span>Jobs</span></a>
-          <a className="navItem" href="#exports">↗ <span>Exports</span></a>
+          <a className="navItem" href="#exports">↗ <span>Clips</span></a>
         </nav>
         <div className="sidebarFoot"><span className="statusDot" /> Worker ready</div>
       </aside>
@@ -106,13 +106,13 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">WORKSPACE / DASHBOARD</p>
-          <h1>Mortal Shell II</h1>
+          <h1>Auto Clipper</h1>
         </div>
         <div className="topbarRight"><span className="livePill"><span className="statusDot" /> {message}</span><span className="avatar">AC</span></div>
       </header>
 
       <section className="workspace">
-        <div className="pageIntro"><div><h2>Clip workspace</h2><p>Acquire, analyze, and rank highlights from your VOD library.</p></div><span className="versionTag">DETERMINISTIC PIPELINE</span></div>
+        <div className="pageIntro"><div><h2>Clip workspace</h2><p>Acquire, analyze, and rank highlights from your Twitch VOD library.</p></div><span className="versionTag">LOCAL PROCESSING</span></div>
         <div className="stats">
           <Stat label="Pipeline status" value={job?.stage ?? "READY"} tone={job ? "blue" : "muted"} />
           <Stat label="Selected VOD" value={selectedVod?.vodId ?? "—"} />

@@ -10,15 +10,7 @@
       "database_id": "3180fadc-54d1-4e52-9876-2d21d21f0933"
     }
   ],
-  "queues": {
-    "producers": [
-      {
-        "binding": "JOBS",
-        "queue": "auto-video-clip-jobs"
-      }
-    ]
-  },
   "vars": {
-    "ALLOWED_ORIGIN": "*"
+    "ALLOWED_ORIGIN": "http://localhost:5173"
   }
 }

@@ -1,6 +1,6 @@
-# Mortal Shell II Auto-Clipper
+# Auto Clipper
 
-Inline-only, deterministic-first auto-clipper for turning a Twitch channel's latest Mortal Shell II VOD into ranked local MP4 highlights.
+Generic Twitch VOD clipper. Cloudflare stores metadata and jobs; local Windows PC performs media work.
 
 ## V1 Shape
 
@@ -35,7 +35,7 @@ npm run local:clean -- --all --purge
 npm run local:worker
 ```
 
-`local:select` reads existing `events.json` and regenerates candidates, scores, and render plan without downloading or rerunning detection. `--render` is intended for rendering selected plan output from retained media.
+`local:select` reads existing `events.json` and regenerates candidates, scores, and render plan without downloading or rerunning detection. `--render` currently reports the selected plan; full render handoff remains pending.
 
 Cleanup keeps exports, JSON artifacts, manifests, progress, and logs. Purge requires `Type DELETE to continue:` interactively or `--yes` non-interactively. Cleanup protects active or incomplete jobs and requires an `.auto-clipper-root` sentinel.
 
