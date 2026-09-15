@@ -1,182 +1,33 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
-
-interface ResolveData {
-  channel: string;
-  vodId: string;
-  title: string;
-  durationSeconds: number;
-  createdAt?: string;
-  url?: string;
-}
+type WatchedChannel = { broadcaster_id: string; login: string; display_name: string; enabled: number | boolean; auto_process: number | boolean; profile_id: string; last_vod_id: string | null; eventsub_subscription_id: string | null };
+type Vod = { channel: string; vodId: string; title: string; durationSeconds: number; createdAt?: string };
+type Job = { jobId: string; stage: string; progress: number | null; error?: string | null };
+async function api<T>(path: string, init?: RequestInit): Promise<T> { const response = await fetch(`${apiBase}${path}`, init); const body = await response.json(); if (!response.ok || body.status !== "ok") throw new Error(body.message ?? "Request failed"); return body.data as T; }
+const listChannels = () => api<WatchedChannel[]>("/api/channels");
+const addChannel = async (channel: string) => { await api<unknown>("/api/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel }) }); return (await listChannels()).find((item) => item.login === channel.toLowerCase())!; };
+const updateChannel = (id: string, body: Record<string, unknown>) => api<unknown>(`/api/channels/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const removeChannel = (id: string) => api<unknown>(`/api/channels/${id}`, { method: "DELETE" });
+const listVods = (channel: string) => api<Vod[]>(`/api/vods?channel=${encodeURIComponent(channel)}&limit=20`);
+const createJob = (vodId: string) => api<Job>("/api/jobs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ vodId }) });
 
 function App() {
-  const [input, setInput] = useState("https://www.twitch.tv/videos/123456");
-  const [resolved, setResolved] = useState<ResolveData | null>(null);
-  const [vods, setVods] = useState<ResolveData[]>([]);
-  const [selectedVod, setSelectedVod] = useState<ResolveData | null>(null);
-  const [job, setJob] = useState<{ jobId: string; stage: string; progress: number | null; error?: string | null } | null>(null);
-  const [message, setMessage] = useState("Ready");
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (!job || job.stage === "COMPLETE" || job.stage === "FAILED") return;
-    const timer = window.setInterval(async () => {
-      const response = await fetch(`${apiBase}/api/jobs/${job.jobId}`);
-      if (!response.ok) return;
-      const body = await response.json();
-      if (body.status === "ok") setJob(body.data);
-    }, 2000);
-    return () => window.clearInterval(timer);
-  }, [job?.jobId, job?.stage]);
-
-  async function resolveVod() {
-    setBusy(true); setMessage("Resolving VOD");
-    try {
-    if (!input.trim().match(/^\d+$/) && !input.includes("/videos/")) {
-      const response = await fetch(`${apiBase}/api/vods?channel=${encodeURIComponent(input)}&limit=20`);
-      const body = await response.json();
-      if (body.status !== "ok") throw new Error(body.message);
-      setVods(body.data);
-      setResolved(null);
-      setSelectedVod(null);
-      setMessage("Select VOD");
-      return;
-    }
-    const response = await fetch(`${apiBase}/api/resolve`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ input })
-    });
-    const body = await response.json();
-    if (body.status !== "ok") throw new Error(body.message);
-    setResolved(body.data);
-    setSelectedVod(body.data);
-    setVods([]);
-    setMessage("VOD resolved");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to resolve VOD"); }
-    finally { setBusy(false); }
-  }
-
-  async function startJob() {
-    setBusy(true);
-    try {
-    const chosen = selectedVod ?? (input.match(/^\d+$/) ? null : undefined);
-    if (input.trim().match(/^\d+$/) && !selectedVod) {
-      const response = await fetch(`${apiBase}/api/resolve`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ input }) });
-      const body = await response.json();
-      if (body.status !== "ok") throw new Error(body.message);
-      setResolved(body.data);
-      setSelectedVod(body.data);
-      return;
-    }
-    if (input.includes("twitch.tv") && !chosen) {
-      setMessage("Select a VOD first");
-      return;
-    }
-    const vodId = chosen?.vodId ?? "local";
-    const response = await fetch(`${apiBase}/api/jobs`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ vodId })
-    });
-    const body = await response.json();
-    if (body.status !== "ok") throw new Error(body.message);
-    setJob(body.data);
-    setMessage("Job queued");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to start job"); }
-    finally { setBusy(false); }
-  }
-
-  return (
-    <main className="shell">
-      <aside className="sidebar">
-        <div className="brand"><span className="brandMark">A</span><span>Auto-Clipper</span></div>
-        <nav aria-label="Primary navigation">
-          <a className="navItem active" href="#dashboard">▦ <span>Dashboard</span></a>
-          <a className="navItem" href="#jobs">◷ <span>Jobs</span></a>
-          <a className="navItem" href="#exports">↗ <span>Clips</span></a>
-        </nav>
-        <div className="sidebarFoot"><span className="statusDot" /> Worker ready</div>
-      </aside>
-      <section className="appMain">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">WORKSPACE / DASHBOARD</p>
-          <h1>Auto Clipper</h1>
-        </div>
-        <div className="topbarRight"><span className="livePill"><span className="statusDot" /> {message}</span><span className="avatar">AC</span></div>
-      </header>
-
-      <section className="workspace">
-        <div className="pageIntro"><div><h2>Clip workspace</h2><p>Acquire, analyze, and rank highlights from your Twitch VOD library.</p></div><span className="versionTag">LOCAL PROCESSING</span></div>
-        <div className="stats">
-          <Stat label="Pipeline status" value={job?.stage ?? "READY"} tone={job ? "blue" : "muted"} />
-          <Stat label="Selected VOD" value={selectedVod?.vodId ?? "—"} />
-          <Stat label="Progress" value={job?.progress == null ? "—" : `${Math.round(job.progress * 100)}%`} />
-          <Stat label="Render mode" value="Local worker" />
-        </div>
-        <div className="inputRow">
-          <label className="srOnly" htmlFor="vod-input">Twitch channel, VOD URL, VOD ID, or local file</label>
-          <input id="vod-input" value={input} onChange={(event) => setInput(event.target.value)} aria-describedby="input-help" />
-          <button onClick={resolveVod} disabled={busy}>Resolve</button>
-          <button onClick={startJob} disabled={busy || !selectedVod && input.includes("twitch.tv")}>Start Job</button>
-        </div>
-        <p id="input-help" className="help">Select historical VOD to lock exact VOD ID before processing.</p>
-
-        <div className="grid" id="dashboard">
-          {vods.length ? <Panel title="Recent VODs">
-            <div className="vodList">
-              {vods.map((vod) => <button className="vodItem" key={vod.vodId} onClick={() => { setSelectedVod(vod); setResolved(vod); setMessage("VOD selected"); }}>
-                <span>{vod.title}</span><small>{Math.round(vod.durationSeconds / 60)} min</small><strong>Process</strong>
-              </button>)}
-            </div>
-          </Panel> : null}
-          <Panel title="Resolved VOD" eyebrow="SOURCE">
-            {selectedVod ? (
-              <dl>
-                <dt>Channel</dt><dd>{selectedVod.channel}</dd>
-                <dt>VOD</dt><dd>{selectedVod.vodId}</dd>
-                <dt>Title</dt><dd>{selectedVod.title}</dd>
-                <dt>Duration</dt><dd>{Math.round(selectedVod.durationSeconds / 60)} min</dd>
-              </dl>
-            ) : <p>No VOD resolved yet.</p>}
-          </Panel>
-
-          <Panel title="Job" eyebrow="PIPELINE" id="jobs">
-            {job ? (
-              <dl>
-                <dt>ID</dt><dd>{job.jobId}</dd>
-                <dt>Stage</dt><dd>{job.stage}</dd>
-                <dt>Progress</dt><dd>{job.progress === null ? "Running" : `${Math.round(job.progress * 100)}%`}</dd>
-                {job.error ? <><dt>Error</dt><dd>{job.error}</dd></> : null}
-              </dl>
-            ) : <p>No job created yet.</p>}
-          </Panel>
-
-          <Panel title="Local Processing" eyebrow="OPERATIONS" id="exports">
-            <pre>{`npm run local:pipeline -- ${selectedVod ? `https://www.twitch.tv/videos/${selectedVod.vodId}` : input}`}</pre>
-            <p>Use this command on local PC to acquire, analyze, score, and render clips.</p>
-          </Panel>
-        </div>
-      </section>
-      </section>
-    </main>
-  );
+  const [route, setRoute] = useState(window.location.hash.slice(1) || "dashboard"); const [channels, setChannels] = useState<WatchedChannel[]>([]); const [vods, setVods] = useState<Vod[]>([]); const [job, setJob] = useState<Job | null>(null); const [message, setMessage] = useState("Ready"); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
+  useEffect(() => { const onHash = () => setRoute(window.location.hash.slice(1) || "dashboard"); window.addEventListener("hashchange", onHash); return () => window.removeEventListener("hashchange", onHash); }, []);
+  useEffect(() => { listChannels().then(setChannels).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (!job || job.stage === "COMPLETE" || job.stage === "FAILED") return; const timer = window.setInterval(() => api<Job>(`/api/jobs/${job.jobId}`).then(setJob).catch(() => undefined), 2000); return () => window.clearInterval(timer); }, [job?.jobId, job?.stage]);
+  async function run(action: () => Promise<void>, success: string) { setBusy(true); setError(""); try { await action(); setMessage(success); } catch (e) { setError(e instanceof Error ? e.message : "Request failed"); } finally { setBusy(false); } }
+  async function loadVods(channel: string) { await run(async () => setVods(await listVods(channel)), "VODs loaded"); window.location.hash = "vods"; }
+  async function process(vodId: string) { await run(async () => setJob(await createJob(vodId)), "Waiting for local worker"); }
+  const count = useMemo(() => channels.filter((c) => Boolean(c.enabled)).length, [channels]);
+  return <main className="shell"><aside className="sidebar"><div className="brand"><span className="brandMark">A</span><span>Auto-Clipper</span></div><nav aria-label="Primary navigation">{[["dashboard", "▦", "Dashboard"], ["channels", "◉", "Channels"], ["vods", "▶", "VODs"], ["jobs", "◷", "Jobs"], ["clips", "✂", "Clips"]].map(([id, icon, label]) => <a className={`navItem ${route === id ? "active" : ""}`} href={`#${id}`} key={id}>{icon} <span>{label}</span></a>)}</nav><div className="sidebarFoot"><span className="statusDot unknown" /> Local Worker<br /><small>Status: Unknown</small></div></aside><section className="appMain"><header className="topbar"><div><p className="eyebrow">WORKSPACE / {route.toUpperCase()}</p><h1>Auto Clipper</h1></div><div className="topbarRight"><span className="livePill">{message}</span><span className="avatar">AC</span></div></header><section className="workspace">{error && <p className="errorBanner" role="alert">{error}</p>}{route === "channels" ? <ChannelsPage channels={channels} busy={busy} onAdd={(name) => run(async () => setChannels([...channels, await addChannel(name)]), "Channel saved")} onUpdate={(id, body) => run(async () => { await updateChannel(id, body); setChannels(await listChannels()); }, "Channel updated")} onRemove={(id) => run(async () => { await removeChannel(id); setChannels(channels.filter((c) => c.broadcaster_id !== id)); }, "Channel removed")} onVods={loadVods} /> : route === "vods" ? <VodsPage vods={vods} onProcess={process} /> : <DashboardPage channels={channels} count={count} job={job} onVods={loadVods} />}</section></section></main>;
 }
-
-function Stat(props: { label: string; value: string; tone?: string }) { return <div className="stat"><span>{props.label}</span><strong className={props.tone ?? ""}>{props.value}</strong></div>; }
-
-function Panel(props: { title: string; eyebrow?: string; id?: string; children: React.ReactNode }) {
-  return (
-    <section className="panel" id={props.id}>
-      <div className="panelHead"><div><span className="eyebrow">{props.eyebrow ?? "VOD LIBRARY"}</span><h2>{props.title}</h2></div><span className="panelMenu">•••</span></div>
-      {props.children}
-    </section>
-  );
-}
-
+function ChannelsPage(props: { channels: WatchedChannel[]; busy: boolean; onAdd: (name: string) => void; onUpdate: (id: string, body: Record<string, unknown>) => void; onRemove: (id: string) => void; onVods: (channel: string) => void }) { const [name, setName] = useState(""); return <><div className="pageIntro"><div><h2>Watched Channels</h2><p>Add Twitch channels to track future VODs.</p></div><span className="versionTag">EVENTSUB NOT CONFIGURED</span></div><form className="inputRow" onSubmit={(e) => { e.preventDefault(); if (name.trim()) { props.onAdd(name.trim()); setName(""); } }}><label className="srOnly" htmlFor="channel-input">Twitch username</label><input id="channel-input" placeholder="Twitch username" value={name} onChange={(e) => setName(e.target.value)} /><button disabled={props.busy || !name.trim()}>+ Add Channel</button></form><div className="channelGrid">{props.channels.length ? props.channels.map((channel) => <ChannelCard key={channel.broadcaster_id} channel={channel} {...props} />) : <div className="empty panel"><h2>No watched channels yet.</h2><p>Add a Twitch channel to automatically track future VODs.</p></div>}</div></>; }
+function ChannelCard({ channel, onUpdate, onRemove, onVods, busy }: { channel: WatchedChannel; onUpdate: (id: string, body: Record<string, unknown>) => void; onRemove: (id: string) => void; onVods: (channel: string) => void; busy: boolean }) { const enabled = Boolean(channel.enabled); return <article className="panel channelCard"><div className="channelTitle"><div><h2>{channel.display_name}</h2><p>Twitch channel · {channel.login}</p></div><span className={`state ${enabled ? "saved" : "disabled"}`}>{enabled ? "Saved" : "Disabled"}</span></div><dl><dt>Subscription</dt><dd>Not configured</dd><dt>Latest VOD</dt><dd>{channel.last_vod_id ?? "None"}</dd><dt>Auto Process</dt><dd><button className="toggle" disabled={busy} onClick={() => onUpdate(channel.broadcaster_id, { autoProcess: !Boolean(channel.auto_process) })}>{Boolean(channel.auto_process) ? "ON" : "OFF"}</button></dd><dt>Profile</dt><dd>{channel.profile_id === "generic" ? "Generic" : channel.profile_id}</dd><dt>Enabled</dt><dd><button className="toggle secondary" disabled={busy} onClick={() => onUpdate(channel.broadcaster_id, { enabled: !enabled })}>{enabled ? "ON" : "OFF"}</button></dd></dl><div className="cardActions"><button onClick={() => onVods(channel.login)}>View VODs</button><button className="danger" onClick={() => onRemove(channel.broadcaster_id)}>Remove</button></div></article>; }
+function DashboardPage({ channels, count, job, onVods }: { channels: WatchedChannel[]; count: number; job: Job | null; onVods: (channel: string) => void }) { return <><div className="pageIntro"><div><h2>Clip workspace</h2><p>Manage watched Twitch channels and local clip processing.</p></div><span className="versionTag">LOCAL PROCESSING</span></div><div className="stats"><Stat label="Saved channels" value={String(count)} /><Stat label="Local Worker" value="Unknown" /><Stat label="Processing" value={job?.stage ?? "None"} /><Stat label="Clips" value="—" /></div><section className="panel"><div className="panelHead"><div><span className="eyebrow">WATCHED CHANNELS</span><h2>Channels</h2></div></div>{channels.length ? channels.map((c) => <div className="summaryRow" key={c.broadcaster_id}><strong>{c.display_name}</strong><span>{Boolean(c.auto_process) ? "Auto Process ON" : "Auto Process OFF"}</span><span>{c.last_vod_id ? `Latest VOD ${c.last_vod_id}` : "No VOD baseline"}</span><button onClick={() => onVods(c.login)}>View VODs</button></div>) : <div className="empty"><p>No watched channels yet.</p><a href="#channels">Add your first channel</a></div>}</section></>; }
+function VodsPage({ vods, onProcess }: { vods: Vod[]; onProcess: (id: string) => void }) { return <><div className="pageIntro"><div><h2>Recent VODs</h2><p>Choose VODs for local processing.</p></div></div><div className="vodCards">{vods.length ? vods.map((vod) => <article className="panel vodCard" key={vod.vodId}><div><h2>{vod.title}</h2><p>{vod.channel} · {Math.round(vod.durationSeconds / 60)} min{vod.createdAt ? ` · ${new Date(vod.createdAt).toLocaleDateString()}` : ""}</p></div><code>{vod.vodId}</code><button onClick={() => onProcess(vod.vodId)}>Process Locally</button></article>) : <div className="empty panel"><h2>No VODs loaded yet.</h2><p>Open a watched channel and choose View VODs.</p></div>}</div></>; }
+function Stat({ label, value }: { label: string; value: string }) { return <div className="stat"><span>{label}</span><strong>{value}</strong></div>; }
 createRoot(document.getElementById("root")!).render(<App />);

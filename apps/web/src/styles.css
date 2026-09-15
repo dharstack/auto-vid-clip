@@ -17,6 +17,8 @@ nav { display: grid; gap: 5px; }
 .navItem:hover, .navItem.active { color: #f5f7fa; background: #172231; }
 .navItem.active { box-shadow: inset 2px 0 #3d8aff; }
 .sidebarFoot { margin-top: auto; padding: 12px; color: #7d8998; font-size: 12px; }
+.sidebarFoot small { color: #59687a; }
+.statusDot.unknown { background: #778597; box-shadow: 0 0 0 3px #77859720; }
 .statusDot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #40d18a; box-shadow: 0 0 0 3px #40d18a20; }
 .appMain { flex: 1; min-width: 0; }
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px 38px; border-bottom: 1px solid #1b2531; background: #0d131b; }
@@ -30,7 +32,21 @@ h1, h2, p { margin: 0; } h1 { margin-top: 4px; color: #f4f7fb; font-size: 23px; 
 .vodList { display: grid; gap: 8px; } .vodItem { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; width: 100%; text-align: left; background: #151e29; color: #dce4ee; border-color: #283646; } .vodItem small { color: #7e8da0; } .vodItem strong { color: #77aaff; font-size: 12px; }
 dl { display: grid; grid-template-columns: 86px 1fr; gap: 11px 14px; margin: 0; font-size: 13px; } dt { color: #708095; } dd { min-width: 0; margin: 0; overflow-wrap: anywhere; color: #d6dee8; } pre { overflow: auto; margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #263445; border-radius: 6px; padding: 12px; color: #a8c8fb; background: #0b1118; font-size: 12px; }
 .panel p { color: #778597; font-size: 13px; line-height: 1.5; } .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.errorBanner { margin-bottom: 18px; padding: 12px 14px; border: 1px solid #71333b; border-radius: 7px; color: #ffb8bd; background: #321a20; }
+.channelGrid, .vodCards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+.channelCard { display: grid; gap: 20px; }
+.channelTitle { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.channelTitle p, .vodCard p { margin-top: 6px; color: #778597; font-size: 12px; }
+.state { padding: 5px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.state.saved { color: #9bd9bc; background: #163529; } .state.disabled { color: #ffb2b7; background: #3a2025; }
+.toggle { min-width: 45px; padding: 5px 8px; border-color: #315d99; background: #17345e; color: #9cc3ff; font-size: 11px; }
+.toggle.secondary { border-color: #354150; background: #1b232d; color: #a7b2c0; }
+.cardActions { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #1e2a38; padding-top: 15px; }
+.cardActions .danger { border-color: #5e3037; background: transparent; color: #e89ba3; }
+.summaryRow { display: grid; grid-template-columns: 1fr 1fr 1.3fr auto; gap: 12px; align-items: center; padding: 14px 0; border-top: 1px solid #1e2a38; color: #a5b1c0; font-size: 12px; }
+.summaryRow strong { color: #edf2f8; } .summaryRow button { padding: 7px 10px; font-size: 11px; }
+.empty { padding: 24px 0; } .empty a { display: inline-block; margin-top: 10px; color: #78adff; font-size: 13px; }
+.vodCard { display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: center; } .vodCard code { color: #89b8ff; font-size: 11px; } .vodCard button { grid-column: 1 / -1; justify-self: start; }
 @media (max-width: 900px) { .sidebar { width: 190px; flex-basis: 190px; } .topbar, .workspace { padding-left: 24px; padding-right: 24px; } .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .stats { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px) { .shell { display: block; } .sidebar { width: 100%; min-height: auto; padding: 14px 16px; border-right: 0; border-bottom: 1px solid #1b2531; } .brand { padding: 0 4px 13px; } nav { grid-template-columns: repeat(3, 1fr); } .navItem { justify-content: center; padding: 9px 5px; } .sidebarFoot { display: none; } .topbar { padding: 20px; } .topbarRight { gap: 8px; } .livePill { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .workspace { padding: 24px 20px 40px; } .pageIntro { align-items: start; flex-direction: column; } .versionTag { align-self: flex-start; } .inputRow, .grid { grid-template-columns: 1fr; } .stats { gap: 8px; } .stat { padding: 13px; } .stat strong { font-size: 14px; } }
+@media (max-width: 640px) { .shell { display: block; } .sidebar { width: 100%; min-height: auto; padding: 14px 16px; border-right: 0; border-bottom: 1px solid #1b2531; } .brand { padding: 0 4px 13px; } nav { grid-template-columns: repeat(5, 1fr); } .navItem { justify-content: center; padding: 9px 5px; } .sidebarFoot { display: none; } .topbar { padding: 20px; } .topbarRight { gap: 8px; } .livePill { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .workspace { padding: 24px 20px 40px; } .pageIntro { align-items: start; flex-direction: column; } .versionTag { align-self: flex-start; } .inputRow, .grid, .channelGrid, .vodCards { grid-template-columns: 1fr; } .stats { gap: 8px; } .stat { padding: 13px; } .stat strong { font-size: 14px; } .summaryRow { grid-template-columns: 1fr 1fr; } .summaryRow button { justify-self: start; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; scroll-behavior: auto !important; } }
-
