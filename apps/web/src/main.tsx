@@ -93,15 +93,32 @@ function App() {
 
   return (
     <main className="shell">
-      <section className="topbar">
+      <aside className="sidebar">
+        <div className="brand"><span className="brandMark">A</span><span>Auto-Clipper</span></div>
+        <nav aria-label="Primary navigation">
+          <a className="navItem active" href="#dashboard">▦ <span>Dashboard</span></a>
+          <a className="navItem" href="#jobs">◷ <span>Jobs</span></a>
+          <a className="navItem" href="#exports">↗ <span>Exports</span></a>
+        </nav>
+        <div className="sidebarFoot"><span className="statusDot" /> Worker ready</div>
+      </aside>
+      <section className="appMain">
+      <header className="topbar">
         <div>
-          <h1>Mortal Shell II Auto-Clipper</h1>
-          <p>Control plane for latest VOD jobs. Heavy video work runs on local PC.</p>
+          <p className="eyebrow">WORKSPACE / DASHBOARD</p>
+          <h1>Mortal Shell II</h1>
         </div>
-        <code>{message}</code>
-      </section>
+        <div className="topbarRight"><span className="livePill"><span className="statusDot" /> {message}</span><span className="avatar">AC</span></div>
+      </header>
 
       <section className="workspace">
+        <div className="pageIntro"><div><h2>Clip workspace</h2><p>Acquire, analyze, and rank highlights from your VOD library.</p></div><span className="versionTag">DETERMINISTIC PIPELINE</span></div>
+        <div className="stats">
+          <Stat label="Pipeline status" value={job?.stage ?? "READY"} tone={job ? "blue" : "muted"} />
+          <Stat label="Selected VOD" value={selectedVod?.vodId ?? "—"} />
+          <Stat label="Progress" value={job?.progress == null ? "—" : `${Math.round(job.progress * 100)}%`} />
+          <Stat label="Render mode" value="Local worker" />
+        </div>
         <div className="inputRow">
           <label className="srOnly" htmlFor="vod-input">Twitch channel, VOD URL, VOD ID, or local file</label>
           <input id="vod-input" value={input} onChange={(event) => setInput(event.target.value)} aria-describedby="input-help" />
@@ -110,7 +127,7 @@ function App() {
         </div>
         <p id="input-help" className="help">Select historical VOD to lock exact VOD ID before processing.</p>
 
-        <div className="grid">
+        <div className="grid" id="dashboard">
           {vods.length ? <Panel title="Recent VODs">
             <div className="vodList">
               {vods.map((vod) => <button className="vodItem" key={vod.vodId} onClick={() => { setSelectedVod(vod); setResolved(vod); setMessage("VOD selected"); }}>
@@ -118,7 +135,7 @@ function App() {
               </button>)}
             </div>
           </Panel> : null}
-          <Panel title="Resolved VOD">
+          <Panel title="Resolved VOD" eyebrow="SOURCE">
             {selectedVod ? (
               <dl>
                 <dt>Channel</dt><dd>{selectedVod.channel}</dd>
@@ -129,7 +146,7 @@ function App() {
             ) : <p>No VOD resolved yet.</p>}
           </Panel>
 
-          <Panel title="Job">
+          <Panel title="Job" eyebrow="PIPELINE" id="jobs">
             {job ? (
               <dl>
                 <dt>ID</dt><dd>{job.jobId}</dd>
@@ -140,20 +157,23 @@ function App() {
             ) : <p>No job created yet.</p>}
           </Panel>
 
-          <Panel title="Local Processing">
+          <Panel title="Local Processing" eyebrow="OPERATIONS" id="exports">
             <pre>{`npm run local:pipeline -- ${selectedVod ? `https://www.twitch.tv/videos/${selectedVod.vodId}` : input}`}</pre>
             <p>Use this command on local PC to acquire, analyze, score, and render clips.</p>
           </Panel>
         </div>
       </section>
+      </section>
     </main>
   );
 }
 
-function Panel(props: { title: string; children: React.ReactNode }) {
+function Stat(props: { label: string; value: string; tone?: string }) { return <div className="stat"><span>{props.label}</span><strong className={props.tone ?? ""}>{props.value}</strong></div>; }
+
+function Panel(props: { title: string; eyebrow?: string; id?: string; children: React.ReactNode }) {
   return (
-    <section className="panel">
-      <h2>{props.title}</h2>
+    <section className="panel" id={props.id}>
+      <div className="panelHead"><div><span className="eyebrow">{props.eyebrow ?? "VOD LIBRARY"}</span><h2>{props.title}</h2></div><span className="panelMenu">•••</span></div>
       {props.children}
     </section>
   );
