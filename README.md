@@ -43,4 +43,4 @@ Pipeline order is resolve, acquire, probe, preprocess, detect, candidate formati
 
 ## Pipeline Trace
 
-View the simplified [pipeline trace](https://dharstack.github.io/auto-vid-clip/trace/).
+View the simplified [pipeline trace](https://dharstack.github.io/auto-vid-clip/).
