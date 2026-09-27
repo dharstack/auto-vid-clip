@@ -18,6 +18,8 @@
     "local:clean": "node tools/job-clean/dist/src/index.js",
     "local:select": "node tools/local-select/dist/src/index.js",
     "local:worker": "node tools/local-worker/dist/src/index.js",
+    "local:status": "node tools/local-worker/dist/src/index.js --monitor --once",
+    "local:monitor": "node tools/local-worker/dist/src/index.js --monitor",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },

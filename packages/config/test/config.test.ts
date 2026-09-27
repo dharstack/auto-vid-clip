@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_CONFIG } from "../src/index.js";
+import { DEFAULT_CONFIG, GENERIC_RECIPE, getRecipe } from "../src/index.js";
 
 test("default config follows V1 deterministic runtime rules", () => {
   assert.equal(DEFAULT_CONFIG.game, "mortal-shell-2");
@@ -12,4 +12,11 @@ test("default config follows V1 deterministic runtime rules", () => {
   assert.equal(DEFAULT_CONFIG.analysis.proxyHeight, 480);
   assert.equal(DEFAULT_CONFIG.analysis.fps, 15);
   assert.equal(DEFAULT_CONFIG.runtimeAI.enabled, false);
+});
+
+test("generic recipe is deterministic and selectable", () => {
+  assert.equal(getRecipe().id, "generic");
+  assert.equal(getRecipe("generic"), GENERIC_RECIPE);
+  assert.equal(GENERIC_RECIPE.config.runtimeAI.enabled, false);
+  assert.throws(() => getRecipe("missing"), /RECIPE_NOT_FOUND/);
 });

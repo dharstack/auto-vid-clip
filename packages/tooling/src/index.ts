@@ -1,5 +1,6 @@
 import type { ToolError, ToolResult } from "@auto-clipper/contracts";
 import type { PipelineProgress, PipelineProgressStage } from "@auto-clipper/contracts";
+export * from "./worker-monitor.js";
 
 const CLI_STAGES: Array<[PipelineProgressStage, string]> = [
   ["RESOLVE", "Resolve VOD"], ["DOWNLOAD_ANALYSIS_MEDIA", "Prepare analysis media"], ["FINALIZE_MEDIA", "Finalize media"],

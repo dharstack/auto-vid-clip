@@ -5,6 +5,19 @@ export interface FrameDifferenceSample { timestampMs: number; difference: number
 export interface MotionDetectorOptions { threshold?: number; minSamples?: number; maxGapMs?: number; }
 export interface AudioRmsSample { timestampMs: number; rms: number; }
 export interface AudioReactionOptions { baselineWindow?: number; multiplier?: number; minimumRms?: number; }
+export interface TranscriptSegment { start: number; end: number; text: string; }
+export interface SpeechCueOptions { windowMs?: number; }
+
+export function detectChatClipCueEvents(segments: TranscriptSegment[], options: SpeechCueOptions = {}): GameplayEvent[] {
+  const windowMs = options.windowMs ?? 120_000;
+  return segments.filter((segment) => /\bchat\s+clip\s+that\b/i.test(segment.text.replace(/[^a-z0-9]+/gi, " "))).map((segment) => ({
+    type: "CHAT_CLIP_CUE",
+    startMs: Math.max(0, Math.round(segment.end * 1000 - windowMs + 15_000)),
+    endMs: Math.max(0, Math.round(segment.end * 1000 - 10_000)),
+    confidence: 0.99,
+    metadata: { source: "local-whisper", cue: "chat clip that", transcript: segment.text }
+  }));
+}
 
 export function consumeFixedChunks(chunks: Uint8Array[], chunkSize: number, onChunk: (chunk: Uint8Array) => void): void {
   let pending = Buffer.alloc(0);

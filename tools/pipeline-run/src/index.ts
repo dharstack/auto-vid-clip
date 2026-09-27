@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { appendFile, copyFile, mkdir, readFile, readdir, writeFile, access } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { buildCandidates } from "@auto-clipper/candidates";
-import { detectEventsFromMedia } from "@auto-clipper/detectors";
+import { detectChatClipCueEvents, detectEventsFromMedia, type TranscriptSegment } from "@auto-clipper/detectors";
 import { createManifest, updateManifestStage } from "@auto-clipper/jobs";
 import { buildYtDlpAnalysisFormatSelector, buildYtDlpSourceRangeArgs, classifyPipelineInput, vodIdFromInput } from "@auto-clipper/media";
 import { buildAnalysisMediaArgs, buildAudioExtractArgs, buildProxyBuildArgs, buildRenderClipArgs, parseYtDlpProgressLine, probeMedia, runFfmpegWithProgress, shouldEmitProgress } from "@auto-clipper/media-tools";
@@ -237,11 +237,34 @@ async function detectWithProgress(jobDir: string, jobId: string, proxy: string, 
   try {
     await writeProgress(jobDir, { jobId, stage: "DETECT_VIDEO", status: "running", progress: null, message: "Detecting gameplay events", elapsedMs: 0 });
     const events = await detectEventsFromMedia({ videoPath: proxy, audioPath: existsSync(audio) ? audio : undefined });
+    const speechCues = await detectSpeechCues(jobDir, audio);
     await writeProgress(jobDir, { jobId, stage: "DETECT_AUDIO", status: "complete", progress: 1, message: "Audio events ready", elapsedMs: Date.now() - startedAtMs });
-    return events;
+    return [...events, ...speechCues].sort((left, right) => left.startMs - right.startMs);
   } finally {
     clearInterval(heartbeat);
   }
+}
+
+async function detectSpeechCues(jobDir: string, audioPath: string): Promise<Awaited<ReturnType<typeof detectChatClipCueEvents>>> {
+  const whisperPath = process.env.WHISPER_PATH;
+  const whisperModel = process.env.WHISPER_MODEL;
+  if (!whisperPath && !whisperModel) return [];
+  const transcriptDir = join(jobDir, "transcript");
+  await mkdir(transcriptDir, { recursive: true });
+  const command = whisperPath ?? "whisper";
+  const model = whisperModel ?? "base";
+  await new Promise<void>((resolveCommand, reject) => {
+    const child = spawn(command, [audioPath, "--model", model, "--output_format", "json", "--output_dir", transcriptDir], { stdio: ["ignore", "ignore", "pipe"] });
+    const errors: Buffer[] = [];
+    child.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolveCommand() : reject(new Error(`WHISPER_FAILED: ${Buffer.concat(errors).toString("utf8").trim()}`)));
+  });
+  const transcriptPath = join(transcriptDir, `${basename(audioPath).replace(/\.[^.]+$/, "")}.json`);
+  const transcript = JSON.parse(await readFile(transcriptPath, "utf8")) as { segments?: TranscriptSegment[] };
+  const cues = detectChatClipCueEvents(transcript.segments ?? []);
+  await writeJson(join(jobDir, "speech-cues.json"), cues);
+  return cues;
 }
 
 async function writeProgress(
@@ -260,8 +283,8 @@ async function writeProgress(
   if (remoteProgressEndpoint) {
     await globalThis.fetch(remoteProgressEndpoint, {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(snapshot)
+      headers: { "content-type": "application/json", ...(process.env.AUTO_CLIPPER_WORKER_TOKEN ? { Authorization: `Bearer ${process.env.AUTO_CLIPPER_WORKER_TOKEN}` } : {}) },
+      body: JSON.stringify({ ...snapshot, workerId: process.env.AUTO_CLIPPER_WORKER_ID })
     }).catch(() => undefined);
   }
 }

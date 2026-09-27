@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consumeFixedChunks, detectAudioReactionEvents, detectCombatMotionEvents } from "../src/index.js";
+import { consumeFixedChunks, detectAudioReactionEvents, detectChatClipCueEvents, detectCombatMotionEvents } from "../src/index.js";
 
 test("detects sustained motion spikes from sampled frame differences", () => {
   const events = detectCombatMotionEvents([
@@ -37,4 +37,11 @@ test("consumes partial and multiple fixed-size stream chunks", () => {
   const frames: number[][] = [];
   consumeFixedChunks([Buffer.from([1, 2]), Buffer.from([3, 4, 5, 6, 7]), Buffer.from([8])], 3, (chunk) => frames.push([...chunk]));
   assert.deepEqual(frames, [[1, 2, 3], [4, 5, 6], [7, 8]]);
+});
+
+test("detects chat clip cue and selects prior two minutes", () => {
+  const events = detectChatClipCueEvents([{ start: 130, end: 132, text: "chat, clip that" }]);
+  assert.equal(events[0].type, "CHAT_CLIP_CUE");
+  assert.equal(events[0].startMs, 27000);
+  assert.equal(events[0].endMs, 122000);
 });

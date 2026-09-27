@@ -33,6 +33,8 @@ export interface AutoClipperConfig {
   runtimeAI: RuntimeAiConfig;
 }
 
+export * from "./profiles.js";
+
 export const DEFAULT_CONFIG: AutoClipperConfig = {
   game: "mortal-shell-2",
   maxClips: 8,

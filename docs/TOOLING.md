@@ -43,17 +43,22 @@ npm run local:pipeline -- https://www.twitch.tv/videos/123456 --dry-run
 Cloudflare API:
 
 ```bash
+cd <repo-root>
+npm run deploy:cloudflare
 cd apps/api
-npx wrangler login
-npx wrangler d1 create auto-video-clip
-npx wrangler queues create auto-video-clip-jobs
-npx wrangler d1 execute auto-video-clip --file schema.sql --remote
-npx wrangler secret put TWITCH_CLIENT_ID
-npx wrangler secret put TWITCH_CLIENT_SECRET
-npx wrangler d1 execute auto-video-clip --file migrations/0002_progress_json.sql --remote
-npx wrangler d1 execute auto-video-clip --file migrations/0003_job_input.sql --remote
-npx wrangler deploy
+npx wrangler d1 migrations apply auto-video-clip --remote
 ```
+
+Vercel auto-deploys web. Cloudflare Worker does not auto-deploy from this repository.
+Redeploy Worker after API or CORS changes. Apply remote D1 migrations before using watched channels; `0005_watched_channels.sql` is required.
+
+Production Vercel variable:
+
+```text
+VITE_API_BASE_URL=https://auto-video-clip-api.dharzannn.workers.dev
+```
+
+Set `VITE_API_BASE_URL` in Vercel Production, then redeploy web when changing it.
 
 Local API development uses `apps/api/.dev.vars`:
 

@@ -6,6 +6,6 @@
     "outDir": "dist",
     "types": ["@cloudflare/workers-types", "node"]
   },
-  "references": [{ "path": "../../packages/twitch" }],
+  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/twitch" }],
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }

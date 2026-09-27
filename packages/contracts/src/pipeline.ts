@@ -7,6 +7,7 @@ export const EVENT_TYPES = [
   "CRITICAL_ATTACK",
   "EXECUTION",
   "DISCOVERY",
+  "CHAT_CLIP_CUE",
   "MIC_REACTION"
 ] as const;
 
@@ -20,7 +21,8 @@ export const CANDIDATE_CATEGORIES = [
   "INTENSE_COMBAT",
   "FUNNY_DEATH",
   "REACTION",
-  "DISCOVERY"
+  "DISCOVERY",
+  "CHAT_CLIP"
 ] as const;
 
 export type CandidateCategory = (typeof CANDIDATE_CATEGORIES)[number];
@@ -82,7 +84,11 @@ export interface RenderPlan {
 export interface AnalysisJob {
   jobId: string;
   vodId: string;
-  stage: JobState;
-  progress: number;
+  status: JobStatus;
+  stage: PipelineStage | string;
+  progress: number | null;
   error: string | null;
+  leaseExpiresAt?: string | null;
+  lastHeartbeatAt?: string | null;
 }
+import type { JobStatus, PipelineStage } from "./observability.js";

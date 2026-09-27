@@ -4,6 +4,7 @@ export interface ScoringOptions {
   minimumScore?: number;
   autoRenderScore?: number;
   weights?: Partial<Record<EventType, number>>;
+  relative?: boolean;
 }
 
 export const DEFAULT_WEIGHTS: Record<EventType, number> = {
@@ -15,6 +16,7 @@ export const DEFAULT_WEIGHTS: Record<EventType, number> = {
   CRITICAL_ATTACK: 0.1,
   EXECUTION: 0.25,
   DISCOVERY: 0.15,
+  CHAT_CLIP_CUE: 0.95,
   MIC_REACTION: 0.1
 };
 
@@ -23,8 +25,10 @@ export function scoreCandidates(candidates: Candidate[], options: ScoringOptions
   const minimumScore = options.minimumScore ?? 0.75;
   const autoRenderScore = options.autoRenderScore ?? 0.9;
 
-  return candidates.map((candidate) => {
-    const score = clamp(round2(candidate.events.reduce((sum, event) => sum + weights[event.type] * event.confidence, 0)));
+  const rawScores = candidates.map((candidate) => candidate.events.reduce((sum, event) => sum + weights[event.type] * event.confidence, 0));
+  const divisor = options.relative && rawScores.length ? Math.max(...rawScores, 1) : 1;
+  return candidates.map((candidate, index) => {
+    const score = clamp(round2(rawScores[index] / divisor));
     return {
       candidateId: candidate.id,
       score,

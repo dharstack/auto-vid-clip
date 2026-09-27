@@ -53,6 +53,7 @@ function classify(types: Set<GameplayEvent["type"]>): CandidateCategory | null {
   if (types.has("CRITICAL_ATTACK")) return "CRITICAL_ATTACK";
   if (types.has("COMBAT_SPIKE")) return "INTENSE_COMBAT";
   if (types.has("MIC_REACTION")) return "REACTION";
+  if (types.has("CHAT_CLIP_CUE")) return "CHAT_CLIP";
   if (types.has("DISCOVERY")) return "DISCOVERY";
   return null;
 }
@@ -69,6 +70,7 @@ function reasonsFor(events: GameplayEvent[]): string[] {
     if (event.type === "MIC_REACTION") reasons.add("Mic reaction");
     if (event.type === "EXECUTION") reasons.add("Execution");
     if (event.type === "DISCOVERY") reasons.add("Discovery");
+    if (event.type === "CHAT_CLIP_CUE") reasons.add("Chat clip cue");
   }
   return [...reasons];
 }

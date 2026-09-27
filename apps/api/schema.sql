@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   job_id TEXT PRIMARY KEY,
   vod_id TEXT NOT NULL,
   input TEXT,
+  status TEXT NOT NULL DEFAULT 'QUEUED',
   stage TEXT NOT NULL,
   progress REAL,
   progress_json TEXT,
@@ -42,6 +43,18 @@ CREATE TABLE IF NOT EXISTS analysis_jobs (
   attempt_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS analysis_jobs_active_vod_unique
+  ON analysis_jobs(vod_id) WHERE status IN ('QUEUED', 'CLAIMED', 'RUNNING');
+
+CREATE TABLE IF NOT EXISTS worker_state (
+  worker_id TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'IDLE',
+  current_job_id TEXT,
+  last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  started_at TEXT,
+  version TEXT
 );
 
 CREATE TABLE IF NOT EXISTS candidate_summaries (

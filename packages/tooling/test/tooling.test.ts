@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { flagValue, formatCliProgress, hasFlag, PipelineProgressRenderer, toToolError } from "../src/index.js";
+import { flagValue, formatCliProgress, formatWorkerJson, formatWorkerMonitor, hasFlag, PipelineProgressRenderer, toToolError } from "../src/index.js";
 
 test("reads flags from argv", () => {
   const argv = ["--input", "vod.mp4", "--json"];
@@ -43,4 +43,17 @@ test("renderer redraws in place and freezes failures with resume details", () =>
   assert.ok(writes[0].includes("\x1b[0J"));
   assert.match(writes.at(-1) ?? "", /Resume: node tools\/pipeline-run/);
   assert.match(writes.at(-1) ?? "", /Log: work\/job-1\/logs\/ffmpeg-proxy\.log/);
+});
+
+test("worker monitor renders idle state without repeated no-job log text", () => {
+  const output = formatWorkerMonitor({ api: "CONNECTED", auth: "OK", worker: { workerId: "desktop-main", online: true, status: "IDLE", currentJobId: null, lastSeenAt: "2026-01-01T00:00:00Z", startedAt: "2026-01-01T00:00:00Z", version: "1.0.0" }, queue: 0, job: null, artifacts: { analysisSource: false, proxy: false, audio: false, events: "pending", clips: 0 }, latest: null });
+  assert.match(output, /STATUS     IDLE/);
+  assert.match(output, /Waiting for activity/);
+  assert.doesNotMatch(output, /no job/i);
+});
+
+test("worker JSON output is compact and contains no ANSI", () => {
+  const output = formatWorkerJson({ api: "CONNECTED", auth: "OK", worker: { workerId: "desktop-main", online: true, status: "RUNNING", currentJobId: "job-1", lastSeenAt: null, startedAt: null, version: "1.0.0" }, queue: 2, job: { jobId: "job-1", vodId: "123", status: "RUNNING", stage: "DETECT", progress: 0.63, message: "Detecting", elapsedMs: 1200, etaMs: null, error: null, worker: "desktop-main", updatedAt: null }, artifacts: { analysisSource: true, proxy: true, audio: true, events: "active", clips: 0 }, latest: "Detecting" });
+  assert.match(output, /"stage":"DETECT"/);
+  assert.doesNotMatch(output, /\x1b/);
 });
