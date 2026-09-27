@@ -11,6 +11,7 @@
     { "path": "../../packages/scoring" },
     { "path": "../../packages/tooling" },
     { "path": "../job-clean" }
+    ,{ "path": "../youtube-upload" }
   ],
   "include": ["src/**/*.ts"]
 }

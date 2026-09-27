@@ -12,6 +12,7 @@ import { buildRenderPlan } from "@auto-clipper/render-plan";
 import { scoreCandidates } from "@auto-clipper/scoring";
 import { flagValue, hasFlag, PipelineProgressRenderer, positionalArg, toToolError } from "@auto-clipper/tooling";
 import { buildCleanupPlan, executeCleanupPlan } from "@auto-clipper/tool-job-clean";
+import { uploadYoutubeVideo } from "@auto-clipper/tool-youtube-upload";
 
 let remoteProgressEndpoint: string | undefined;
 let cliJson = false;
@@ -35,6 +36,7 @@ async function main(): Promise<void> {
 
     const dryRun = hasFlag(argv, "--dry-run");
     const cleanup = hasFlag(argv, "--cleanup");
+    const uploadYoutube = hasFlag(argv, "--upload-youtube");
     cliJson = hasFlag(argv, "--json");
     cliVerbose = hasFlag(argv, "--verbose");
     cliInput = input;
@@ -94,7 +96,6 @@ async function main(): Promise<void> {
     await writeProgress(jobDir, { jobId, stage: "DOWNLOAD_ANALYSIS_MEDIA", status: "complete", progress: 1, message: "Analysis media ready", elapsedMs: 0 });
     manifest = updateManifestStage(manifest, "acquire", "complete");
     await writeJson(join(jobDir, "manifest.json"), manifest);
-
     await writeProgress(jobDir, { jobId, stage: "PROBE", status: "running", progress: null, message: "Probing analysis media", elapsedMs: 0 });
     const probe = dryRun ? { durationMs: 120000, width: 1280, height: 720, fps: 30, hasAudio: true } : existsSync(join(jobDir, "media.json"))
       ? JSON.parse(await readFile(join(jobDir, "media.json"), "utf8"))
@@ -185,6 +186,11 @@ async function main(): Promise<void> {
     }
     manifest = updateManifestStage(updateManifestStage(manifest, "resolve", "complete"), "render", "complete");
     await writeJson(join(jobDir, "manifest.json"), manifest);
+    if (uploadYoutube && !dryRun && plan.clips.length > 0) {
+      await writeProgress(jobDir, { jobId, stage: "UPLOAD_YOUTUBE", status: "running", progress: null, message: "Uploading clips to YouTube", elapsedMs: 0 });
+      for (const clip of plan.clips) await uploadYoutubeVideo({ filePath: join(exportsDir, clip.output), title: `${clip.category} highlight`, description: `Generated from Twitch VOD ${vodId}.`, privacyStatus: (process.env.YOUTUBE_PRIVACY_STATUS as "private" | "unlisted" | "public" | undefined) ?? "private", outputPath: join(jobDir, `youtube-${clip.candidateId}.json`) });
+      await writeProgress(jobDir, { jobId, stage: "UPLOAD_YOUTUBE", status: "complete", progress: 1, message: "YouTube uploads complete", elapsedMs: 0 });
+    }
     if (cleanup && !dryRun) {
       const cleanupPlan = await buildCleanupPlan({ workRoot, jobId });
       const bytesDeleted = await executeCleanupPlan(cleanupPlan);

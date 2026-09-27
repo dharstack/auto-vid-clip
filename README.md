@@ -25,6 +25,7 @@ Deterministic Twitch VOD highlight pipeline. Web UI and Cloudflare API form the 
 
 ```bash
 npm run local:pipeline -- <vod-or-local-file>
+npm run local:pipeline -- <vod-or-local-file> --upload-youtube
 npm run local:pipeline -- <vod-or-local-file> --cleanup
 npm run local:select -- --job job-<vod-id>
 npm run local:select -- --job job-<vod-id> --render
@@ -39,7 +40,9 @@ npm run local:worker
 
 Cleanup keeps exports, JSON artifacts, manifests, progress, and logs. Purge requires `Type DELETE to continue:` interactively or `--yes` non-interactively. Cleanup protects active or incomplete jobs and requires an `.auto-clipper-root` sentinel.
 
-Pipeline order is resolve, acquire, probe, preprocess, detect, candidate formation, scoring, render-plan generation, range acquisition, render, verification, optional cleanup, complete. YouTube upload is intentionally reserved for a later integration.
+Pipeline order is resolve, acquire, probe, preprocess, detect, candidate formation, scoring, render-plan generation, range acquisition, render, verification, optional cleanup, optional YouTube upload, complete. Upload is opt-in and defaults to private.
+
+YouTube upload requires `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, and `YOUTUBE_REFRESH_TOKEN`. Set optional `YOUTUBE_PRIVACY_STATUS` to `private`, `unlisted`, or `public`. Upload metadata is saved as `youtube-<candidate-id>.json`; rendered exports remain when upload fails.
 
 ## Pipeline Trace
 

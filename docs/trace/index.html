@@ -70,6 +70,8 @@
         W --> P[Deterministic pipeline tools]
         P --> M[yt-dlp + FFmpeg + detectors]
         P --> A[JSON artifacts + exports]
+        A -->|opt-in flag| Y[YouTube upload]
+        Y --> YJ[youtube JSON result]
         API --> T[Twitch Helix / EventSub]
         C[Shared contracts] -.-> API
         C -.-> W
