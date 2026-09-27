@@ -40,3 +40,7 @@ npm run local:worker
 Cleanup keeps exports, JSON artifacts, manifests, progress, and logs. Purge requires `Type DELETE to continue:` interactively or `--yes` non-interactively. Cleanup protects active or incomplete jobs and requires an `.auto-clipper-root` sentinel.
 
 Pipeline order is resolve, acquire, probe, preprocess, detect, candidate formation, scoring, render-plan generation, range acquisition, render, verification, optional cleanup, complete. YouTube upload is intentionally reserved for a later integration.
+
+## Pipeline Trace
+
+View the simplified [pipeline trace](https://dharstack.github.io/auto-vid-clip/trace/).
