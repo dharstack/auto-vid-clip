@@ -20,6 +20,10 @@
     .metric span { color: var(--muted); font-size: .85rem; }
     .trace { padding: 1.25rem; }
     .trace h2 { margin: 0 0 1rem; font-size: 1.15rem; }
+    .architecture { margin-top: 1rem; overflow-x: auto; }
+    .architecture h2 { margin-bottom: .25rem; }
+    .architecture p { margin: 0 0 1rem; color: var(--muted); font-size: .88rem; }
+    .mermaid { min-width: 680px; margin: 0; padding: 1rem; border-radius: .8rem; background: #111b2c; }
     ol { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; padding: 0; margin: 0; list-style: none; counter-reset: stage; }
     li { position: relative; min-height: 6rem; padding: 1rem 1rem 1rem 3.5rem; border: 1px solid var(--line); border-radius: .8rem; background: #1c2a40; counter-increment: stage; }
     li::before { content: counter(stage, decimal-leading-zero); position: absolute; left: 1rem; top: 1rem; color: var(--blue); font: 700 .8rem ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -56,7 +60,27 @@
         <li><strong>Complete</strong><span>Leave traceable artifacts for selection or render.</span></li>
       </ol>
     </section>
+    <section class="trace architecture" aria-labelledby="architecture-title">
+      <h2 id="architecture-title">Architecture</h2>
+      <p>Cloud control plane coordinates jobs; local worker performs media work; shared contracts keep state deterministic.</p>
+      <pre class="mermaid">flowchart LR
+        UI[React web UI] --> API[Cloudflare API]
+        API --> DB[(D1 metadata + jobs)]
+        API -->|authenticated claim / heartbeat| W[Local worker]
+        W --> P[Deterministic pipeline tools]
+        P --> M[yt-dlp + FFmpeg + detectors]
+        P --> A[JSON artifacts + exports]
+        API --> T[Twitch Helix / EventSub]
+        C[Shared contracts] -.-> API
+        C -.-> W
+        C -.-> P
+      </pre>
+    </section>
     <footer>Source: <a href="https://github.com/dharstack/auto-vid-clip">auto-vid-clip</a>. No runtime AI required.</footer>
   </main>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "dark", securityLevel: "strict" });
+  </script>
 </body>
 </html>
