@@ -9,6 +9,7 @@ tools/ai/*/dist/
 *.tsbuildinfo
 .vercel/
 apps/*/.vercel/
+.local/
 
 work/
 work-*/

@@ -18,3 +18,13 @@
 18. Keep files focused and small.
 19. Use shared contracts.
 20. Finish with a concise diff/test summary.
+21. Implementation code lives in owning workspace `src/`.
+22. Tests live in owning workspace `test/`.
+23. Do not create source files at repo root.
+24. Apps go under `apps/`.
+25. Reusable libraries go under `packages/`.
+26. Executable tools go under `tools/`.
+27. Generated/local state goes under `.local/` or `work/`.
+28. Keep files focused.
+29. Split only at real responsibility boundaries.
+30. Do not reorganize unrelated code.

@@ -13,5 +13,5 @@
     { "path": "../job-clean" }
     ,{ "path": "../youtube-upload" }
   ],
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

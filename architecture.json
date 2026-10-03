@@ -1,4 +1,5 @@
 {
+  "schemaVersion": 1,
   "generated": "deterministic",
   "workspaces": [
     {
@@ -133,7 +134,10 @@
     {
       "name": "@auto-clipper/ai-architecture",
       "path": "tools/ai/architecture",
-      "dependencies": [],
+      "dependencies": [
+        "@auto-clipper/ai-scanner",
+        "@auto-clipper/contracts"
+      ],
       "tests": [
         "tools/ai/architecture/test/architecture.test.ts"
       ]
@@ -141,7 +145,9 @@
     {
       "name": "@auto-clipper/ai-check",
       "path": "tools/ai/check",
-      "dependencies": [],
+      "dependencies": [
+        "@auto-clipper/ai-scanner"
+      ],
       "tests": [
         "tools/ai/check/test/check.test.ts"
       ]
@@ -149,7 +155,9 @@
     {
       "name": "@auto-clipper/ai-context",
       "path": "tools/ai/context",
-      "dependencies": [],
+      "dependencies": [
+        "@auto-clipper/ai-scanner"
+      ],
       "tests": [
         "tools/ai/context/test/context.test.ts"
       ]
@@ -157,9 +165,19 @@
     {
       "name": "@auto-clipper/ai-impact",
       "path": "tools/ai/impact",
-      "dependencies": [],
+      "dependencies": [
+        "@auto-clipper/ai-scanner"
+      ],
       "tests": [
         "tools/ai/impact/test/impact.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/ai-scanner",
+      "path": "tools/ai/scanner",
+      "dependencies": [],
+      "tests": [
+        "tools/ai/scanner/test/scanner.test.ts"
       ]
     },
     {
@@ -268,7 +286,9 @@
         "@auto-clipper/tool-youtube-upload",
         "@auto-clipper/tooling"
       ],
-      "tests": []
+      "tests": [
+        "tools/pipeline-run/test/e2e/fixture-pipeline.e2e.test.ts"
+      ]
     },
     {
       "name": "@auto-clipper/tool-proxy-build",
@@ -338,19 +358,19 @@
   "pipelineStages": [
     "RESOLVE",
     "DOWNLOAD_ANALYSIS_MEDIA",
-    "BUILD_PROXY",
+    "FINALIZE_MEDIA",
     "PROBE",
+    "BUILD_PROXY",
     "EXTRACT_AUDIO",
     "DETECT_VIDEO",
+    "DETECT_AUDIO",
     "BUILD_CANDIDATES",
     "SCORE",
     "BUILD_RENDER_PLAN",
     "ACQUIRE_RENDER_RANGE",
     "RENDER",
-    "UPLOAD_YOUTUBE",
     "COMPLETE",
-    "FAILED",
-    "DETECT_AUDIO"
+    "FAILED"
   ],
   "tools": [
     {
@@ -368,6 +388,10 @@
     {
       "name": "@auto-clipper/ai-impact",
       "path": "tools/ai/impact"
+    },
+    {
+      "name": "@auto-clipper/ai-scanner",
+      "path": "tools/ai/scanner"
     },
     {
       "name": "@auto-clipper/tool-audio-extract",
@@ -454,6 +478,8 @@
     "tools/ai/check/test/check.test.ts",
     "tools/ai/context/test/context.test.ts",
     "tools/ai/impact/test/impact.test.ts",
-    "tools/job-clean/test/cleanup.test.ts"
+    "tools/ai/scanner/test/scanner.test.ts",
+    "tools/job-clean/test/cleanup.test.ts",
+    "tools/pipeline-run/test/e2e/fixture-pipeline.e2e.test.ts"
   ]
 }

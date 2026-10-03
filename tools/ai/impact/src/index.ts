@@ -1,18 +1,12 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
+import { discoverFiles } from "@auto-clipper/ai-scanner";
 
 const root = process.cwd();
-const ignored = new Set(["node_modules", "dist", ".git", ".vercel"]);
 type Source = { file: string; text: string };
 
 export function findImporters(packageName: string, sources: Source[]): string[] {
   return sources.filter(({ text }) => text.includes(`"${packageName}"`) || text.includes(`'${packageName}'`)).map(({ file }) => file).sort();
-}
-
-async function listFiles(directory: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const nested = await Promise.all(entries.filter((entry) => entry.isDirectory() && !ignored.has(entry.name)).map((entry) => listFiles(join(directory, entry.name))));
-  return [...entries.filter((entry) => entry.isFile()).map((entry) => join(directory, entry.name)), ...nested.flat()];
 }
 
 async function main(): Promise<void> {
@@ -27,8 +21,8 @@ async function main(): Promise<void> {
     targetPackage = await readFile(join(root, candidate, "package.json"), "utf8").then((text) => JSON.parse(text) as typeof targetPackage).catch(() => undefined);
     if (targetPackage) owner = candidate;
   }
-  const files = await listFiles(root);
-  const sources: Source[] = await Promise.all(files.filter((file) => file.endsWith(".ts") && file.includes(`${sep}src${sep}`) && !file.includes(`${sep}dist${sep}`)).map(async (file) => ({ file: relative(root, file).split(sep).join("/"), text: await readFile(file, "utf8") })));
+  const files = (await discoverFiles(root)).map((file) => join(root, file));
+  const sources: Source[] = await Promise.all(files.filter((file) => file.endsWith(".ts") && file.includes(`${sep}src${sep}`)).map(async (file) => ({ file: relative(root, file).split(sep).join("/"), text: await readFile(file, "utf8") })));
   const manifest = targetPackage;
   const tests = files.map((file) => relative(root, file).split(sep).join("/")).filter((file) => file.startsWith(`${owner}/test/`));
   const packageName = manifest?.name;

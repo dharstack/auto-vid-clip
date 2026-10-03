@@ -1,1 +1,1 @@
-{"extends":"../../../tsconfig.base.json","compilerOptions":{"composite":true,"outDir":"dist","rootDir":"."},"include":["src/**/*.ts","test/**/*.ts"]}
+{"extends":"../../../tsconfig.base.json","compilerOptions":{"composite":true,"outDir":"dist","rootDir":"."},"references":[{"path":"../scanner"}],"include":["src/**/*.ts","test/**/*.ts"]}

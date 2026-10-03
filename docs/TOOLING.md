@@ -12,10 +12,20 @@ Each app, package, and tool owns its `src/` and `test/` directories. Keep docs i
 npm run ai:context -- "fix youtube upload"
 npm run ai:impact -- tools/youtube-upload/src/index.ts
 npm run ai:check
+npm run ai:check -- --full
 npm run architecture:json
 ```
 
-`architecture:json` deterministically refreshes root `architecture.json`.
+Default `ai:check` runs build, typecheck, and tests only for changed workspaces. `--full` runs repo-wide checks. Failed full output is saved under ignored `.local/ai/logs/`; command output stays compact JSON. AI tools scan known code roots and skip generated/local directories.
+
+`architecture:json` deterministically refreshes root `architecture.json`. It uses shared pipeline stages from `packages/contracts/`.
+
+Local fixture E2E uses real FFmpeg/ffprobe and temporary work state:
+
+```bash
+npm run test:e2e
+npm run test:all
+```
 
 Planned tools:
 

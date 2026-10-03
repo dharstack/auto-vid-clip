@@ -1,8 +1,8 @@
-import { readFile, readdir } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { discoverFiles } from "@auto-clipper/ai-scanner";
 
 const root = process.cwd();
-const ignored = new Set(["node_modules", "dist", ".git", ".vercel"]);
 
 export function rankFiles(task: string, files: string[], contents: Record<string, string> = {}): string[] {
   const words = task.toLowerCase().match(/[a-z0-9]+/g) ?? [];
@@ -11,16 +11,10 @@ export function rankFiles(task: string, files: string[], contents: Record<string
     .sort((a, b) => b.score - a.score || a.file.localeCompare(b.file)).map(({ file }) => file);
 }
 
-async function listFiles(directory: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const nested = await Promise.all(entries.filter((entry) => entry.isDirectory() && !ignored.has(entry.name)).map((entry) => listFiles(join(directory, entry.name))));
-  return [...entries.filter((entry) => entry.isFile()).map((entry) => join(directory, entry.name)), ...nested.flat()];
-}
-
 async function main(): Promise<void> {
   const task = process.argv.slice(2).join(" ").replaceAll("^", "").trim();
   if (!task) throw new Error('Usage: npm run ai:context -- "task"');
-  const files = (await listFiles(root)).map((file) => relative(root, file).split(sep).join("/"));
+  const files = await discoverFiles(root);
   const candidates = files.filter((file) => /^(apps|packages|tools)\//.test(file) && !file.includes("/test/") && /\.(ts|tsx|json)$/.test(file));
   const contents: Record<string, string> = {};
   await Promise.all(candidates.map(async (file) => { contents[file] = await readFile(join(root, file), "utf8").catch(() => ""); }));
