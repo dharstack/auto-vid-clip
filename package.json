@@ -6,10 +6,11 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "tools/*"
+    "tools/*",
+    "tools/ai/*"
   ],
   "scripts": {
-    "build": "npm run build -w @auto-clipper/contracts && npm run build -w @auto-clipper/config && npm run build -w @auto-clipper/jobs && npm run build -w @auto-clipper/media && npm run build -w @auto-clipper/media-tools && npm run build -w @auto-clipper/twitch && npm run build -w @auto-clipper/candidates && npm run build -w @auto-clipper/detectors && npm run build -w @auto-clipper/scoring && npm run build -w @auto-clipper/render-plan && npm run build -w @auto-clipper/tooling && npm run build --workspaces --if-present",
+    "build": "npm run build -w @auto-clipper/contracts && npm run build -w @auto-clipper/config && npm run build -w @auto-clipper/jobs && npm run build -w @auto-clipper/media && npm run build -w @auto-clipper/media-tools && npm run build -w @auto-clipper/twitch && npm run build -w @auto-clipper/candidates && npm run build -w @auto-clipper/detectors && npm run build -w @auto-clipper/scoring && npm run build -w @auto-clipper/render-plan && npm run build -w @auto-clipper/tooling && npm run build -w @auto-clipper/tool-youtube-upload && npm run build --workspaces --if-present",
     "build:api": "npm run build -w @auto-clipper/api",
     "build:web": "npm run build -w @auto-clipper/web",
     "deploy:cloudflare": "npm run deploy -w @auto-clipper/api",
@@ -21,7 +22,11 @@
     "local:status": "node tools/local-worker/dist/src/index.js --monitor --once",
     "local:monitor": "node tools/local-worker/dist/src/index.js --monitor",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "ai:context": "npm run build -w @auto-clipper/ai-context && node tools/ai/context/dist/src/index.js",
+    "ai:impact": "npm run build -w @auto-clipper/ai-impact && node tools/ai/impact/dist/src/index.js",
+    "ai:check": "npm run build -w @auto-clipper/ai-check && node tools/ai/check/dist/src/index.js",
+    "architecture:json": "npm run build -w @auto-clipper/ai-architecture && node tools/ai/architecture/dist/src/index.js"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",

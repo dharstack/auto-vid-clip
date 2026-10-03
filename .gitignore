@@ -5,6 +5,7 @@ packages/*/dist/
 apps/*/dist/
 apps/*/dist-types/
 tools/*/dist/
+tools/ai/*/dist/
 *.tsbuildinfo
 .vercel/
 apps/*/.vercel/

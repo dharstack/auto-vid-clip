@@ -2,6 +2,21 @@
 
 Deterministic tools live under `tools/`.
 
+## OpenCode Development Helpers
+
+OpenCode is the development harness. Fledge Alpha Free is a hosted development model and may be rate-limited; switch models manually or stop when unavailable. Auto Clipper runtime stays deterministic and has no Fledge dependency. Repo AI tools below gather deterministic context and run checks; they do not call an LLM.
+
+Each app, package, and tool owns its `src/` and `test/` directories. Keep docs in `docs/`, fixtures in `fixtures/`, and local state in `.local/` or `work/`. Avoid source files at repository root.
+
+```bash
+npm run ai:context -- "fix youtube upload"
+npm run ai:impact -- tools/youtube-upload/src/index.ts
+npm run ai:check
+npm run architecture:json
+```
+
+`architecture:json` deterministically refreshes root `architecture.json`.
+
 Planned tools:
 
 - `twitch-resolve`

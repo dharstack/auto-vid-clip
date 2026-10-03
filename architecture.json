@@ -1,0 +1,459 @@
+{
+  "generated": "deterministic",
+  "workspaces": [
+    {
+      "name": "@auto-clipper/api",
+      "path": "apps/api",
+      "dependencies": [
+        "@auto-clipper/contracts",
+        "@auto-clipper/twitch"
+      ],
+      "tests": [
+        "apps/api/test/eventsub.test.ts",
+        "apps/api/test/resolve.test.ts",
+        "apps/api/test/worker.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/web",
+      "path": "apps/web",
+      "dependencies": [],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/candidates",
+      "path": "packages/candidates",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/candidates/test/candidates.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/config",
+      "path": "packages/config",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/config/test/config.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/contracts",
+      "path": "packages/contracts",
+      "dependencies": [],
+      "tests": [
+        "packages/contracts/test/contracts.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/detectors",
+      "path": "packages/detectors",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/detectors/test/detectors.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/jobs",
+      "path": "packages/jobs",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/jobs/test/jobs.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/media",
+      "path": "packages/media",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/media/test/media.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/media-tools",
+      "path": "packages/media-tools",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/media-tools/test/media-tools.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/render-plan",
+      "path": "packages/render-plan",
+      "dependencies": [
+        "@auto-clipper/config",
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/render-plan/test/render-plan.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/scoring",
+      "path": "packages/scoring",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/scoring/test/scoring.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/tooling",
+      "path": "packages/tooling",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/tooling/test/tooling.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/twitch",
+      "path": "packages/twitch",
+      "dependencies": [
+        "@auto-clipper/contracts"
+      ],
+      "tests": [
+        "packages/twitch/test/auth.test.ts",
+        "packages/twitch/test/twitch.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/ai-architecture",
+      "path": "tools/ai/architecture",
+      "dependencies": [],
+      "tests": [
+        "tools/ai/architecture/test/architecture.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/ai-check",
+      "path": "tools/ai/check",
+      "dependencies": [],
+      "tests": [
+        "tools/ai/check/test/check.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/ai-context",
+      "path": "tools/ai/context",
+      "dependencies": [],
+      "tests": [
+        "tools/ai/context/test/context.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/ai-impact",
+      "path": "tools/ai/impact",
+      "dependencies": [],
+      "tests": [
+        "tools/ai/impact/test/impact.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/tool-audio-extract",
+      "path": "tools/audio-extract",
+      "dependencies": [
+        "@auto-clipper/media-tools",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-build-candidates",
+      "path": "tools/build-candidates",
+      "dependencies": [
+        "@auto-clipper/candidates",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-build-render-plan",
+      "path": "tools/build-render-plan",
+      "dependencies": [
+        "@auto-clipper/render-plan",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-detect-events",
+      "path": "tools/detect-events",
+      "dependencies": [
+        "@auto-clipper/detectors",
+        "@auto-clipper/media-tools",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-job-clean",
+      "path": "tools/job-clean",
+      "dependencies": [],
+      "tests": [
+        "tools/job-clean/test/cleanup.test.ts"
+      ]
+    },
+    {
+      "name": "@auto-clipper/tool-job-status",
+      "path": "tools/job-status",
+      "dependencies": [
+        "@auto-clipper/jobs",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-local-select",
+      "path": "tools/local-select",
+      "dependencies": [
+        "@auto-clipper/candidates",
+        "@auto-clipper/render-plan",
+        "@auto-clipper/scoring"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-local-worker",
+      "path": "tools/local-worker",
+      "dependencies": [
+        "@auto-clipper/contracts",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-media-acquire",
+      "path": "tools/media-acquire",
+      "dependencies": [
+        "@auto-clipper/media",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-media-probe",
+      "path": "tools/media-probe",
+      "dependencies": [
+        "@auto-clipper/media-tools",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-pipeline-run",
+      "path": "tools/pipeline-run",
+      "dependencies": [
+        "@auto-clipper/candidates",
+        "@auto-clipper/detectors",
+        "@auto-clipper/jobs",
+        "@auto-clipper/media",
+        "@auto-clipper/media-tools",
+        "@auto-clipper/render-plan",
+        "@auto-clipper/scoring",
+        "@auto-clipper/tool-job-clean",
+        "@auto-clipper/tool-youtube-upload",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-proxy-build",
+      "path": "tools/proxy-build",
+      "dependencies": [
+        "@auto-clipper/media-tools",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-render-clips",
+      "path": "tools/render-clips",
+      "dependencies": [
+        "@auto-clipper/media-tools",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-score-candidates",
+      "path": "tools/score-candidates",
+      "dependencies": [
+        "@auto-clipper/scoring",
+        "@auto-clipper/tooling"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-twitch-resolve",
+      "path": "tools/twitch-resolve",
+      "dependencies": [
+        "@auto-clipper/tooling",
+        "@auto-clipper/twitch"
+      ],
+      "tests": []
+    },
+    {
+      "name": "@auto-clipper/tool-youtube-upload",
+      "path": "tools/youtube-upload",
+      "dependencies": [],
+      "tests": []
+    }
+  ],
+  "routes": [
+    "/api/channels",
+    "/api/eventsub",
+    "/api/eventsub/status",
+    "/api/jobs",
+    "/api/jobs/claim",
+    "/api/resolve",
+    "/api/vods",
+    "/api/worker/heartbeat",
+    "/api/worker/status",
+    "/health"
+  ],
+  "tables": [
+    "analysis_jobs",
+    "candidate_summaries",
+    "channels",
+    "exports",
+    "settings",
+    "vods",
+    "watched_channels",
+    "worker_state"
+  ],
+  "pipelineStages": [
+    "RESOLVE",
+    "DOWNLOAD_ANALYSIS_MEDIA",
+    "BUILD_PROXY",
+    "PROBE",
+    "EXTRACT_AUDIO",
+    "DETECT_VIDEO",
+    "BUILD_CANDIDATES",
+    "SCORE",
+    "BUILD_RENDER_PLAN",
+    "ACQUIRE_RENDER_RANGE",
+    "RENDER",
+    "UPLOAD_YOUTUBE",
+    "COMPLETE",
+    "FAILED",
+    "DETECT_AUDIO"
+  ],
+  "tools": [
+    {
+      "name": "@auto-clipper/ai-architecture",
+      "path": "tools/ai/architecture"
+    },
+    {
+      "name": "@auto-clipper/ai-check",
+      "path": "tools/ai/check"
+    },
+    {
+      "name": "@auto-clipper/ai-context",
+      "path": "tools/ai/context"
+    },
+    {
+      "name": "@auto-clipper/ai-impact",
+      "path": "tools/ai/impact"
+    },
+    {
+      "name": "@auto-clipper/tool-audio-extract",
+      "path": "tools/audio-extract"
+    },
+    {
+      "name": "@auto-clipper/tool-build-candidates",
+      "path": "tools/build-candidates"
+    },
+    {
+      "name": "@auto-clipper/tool-build-render-plan",
+      "path": "tools/build-render-plan"
+    },
+    {
+      "name": "@auto-clipper/tool-detect-events",
+      "path": "tools/detect-events"
+    },
+    {
+      "name": "@auto-clipper/tool-job-clean",
+      "path": "tools/job-clean"
+    },
+    {
+      "name": "@auto-clipper/tool-job-status",
+      "path": "tools/job-status"
+    },
+    {
+      "name": "@auto-clipper/tool-local-select",
+      "path": "tools/local-select"
+    },
+    {
+      "name": "@auto-clipper/tool-local-worker",
+      "path": "tools/local-worker"
+    },
+    {
+      "name": "@auto-clipper/tool-media-acquire",
+      "path": "tools/media-acquire"
+    },
+    {
+      "name": "@auto-clipper/tool-media-probe",
+      "path": "tools/media-probe"
+    },
+    {
+      "name": "@auto-clipper/tool-pipeline-run",
+      "path": "tools/pipeline-run"
+    },
+    {
+      "name": "@auto-clipper/tool-proxy-build",
+      "path": "tools/proxy-build"
+    },
+    {
+      "name": "@auto-clipper/tool-render-clips",
+      "path": "tools/render-clips"
+    },
+    {
+      "name": "@auto-clipper/tool-score-candidates",
+      "path": "tools/score-candidates"
+    },
+    {
+      "name": "@auto-clipper/tool-twitch-resolve",
+      "path": "tools/twitch-resolve"
+    },
+    {
+      "name": "@auto-clipper/tool-youtube-upload",
+      "path": "tools/youtube-upload"
+    }
+  ],
+  "tests": [
+    "apps/api/test/eventsub.test.ts",
+    "apps/api/test/resolve.test.ts",
+    "apps/api/test/worker.test.ts",
+    "packages/candidates/test/candidates.test.ts",
+    "packages/config/test/config.test.ts",
+    "packages/contracts/test/contracts.test.ts",
+    "packages/detectors/test/detectors.test.ts",
+    "packages/jobs/test/jobs.test.ts",
+    "packages/media/test/media.test.ts",
+    "packages/media-tools/test/media-tools.test.ts",
+    "packages/render-plan/test/render-plan.test.ts",
+    "packages/scoring/test/scoring.test.ts",
+    "packages/tooling/test/tooling.test.ts",
+    "packages/twitch/test/auth.test.ts",
+    "packages/twitch/test/twitch.test.ts",
+    "tools/ai/architecture/test/architecture.test.ts",
+    "tools/ai/check/test/check.test.ts",
+    "tools/ai/context/test/context.test.ts",
+    "tools/ai/impact/test/impact.test.ts",
+    "tools/job-clean/test/cleanup.test.ts"
+  ]
+}
