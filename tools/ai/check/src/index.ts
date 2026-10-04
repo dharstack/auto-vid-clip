@@ -3,26 +3,56 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { discoverFiles } from "@auto-clipper/ai-scanner";
 
-type Workspace = { name: string; path: string; dependencies?: Record<string, string>; scripts?: Record<string, string> };
+type Workspace = { name: string; path: string; dependencies?: Record<string, string>; devDependencies?: Record<string, string>; scripts?: Record<string, string> };
 type Check = { step: "build" | "typecheck" | "test"; workspace?: string };
 
 export function planChecks(changedFiles: string[], workspaces: Workspace[], full = false): Check[] {
   if (full) return [{ step: "build" }, { step: "typecheck" }, { step: "test" }];
-  const owners = workspaces.filter(({ path }) => changedFiles.some((file) => file === path || file.startsWith(`${path}/`)))
-    .sort((left, right) => left.path.localeCompare(right.path));
-  return owners.flatMap(({ name, scripts }) => (["build", "typecheck", "test"] as const)
+  return impactedWorkspaces(changedFiles, workspaces).flatMap(({ name, scripts }) => (["build", "typecheck", "test"] as const)
     .filter((step) => Boolean(scripts?.[step]))
     .map((step) => ({ step, workspace: name })));
 }
 
+function impactedWorkspaces(changedFiles: string[], workspaces: Workspace[]): Workspace[] {
+  const byName = new Map(workspaces.map((workspace) => [workspace.name, workspace]));
+  const impacted = new Set(workspaces.filter(({ path }) => changedFiles.some((file) => file === path || file.startsWith(`${path}/`))).map(({ name }) => name));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const workspace of workspaces) {
+      const dependencies = { ...workspace.dependencies, ...workspace.devDependencies };
+      if (!impacted.has(workspace.name) && Object.keys(dependencies).some((dependency) => impacted.has(dependency))) {
+        impacted.add(workspace.name);
+        changed = true;
+      }
+    }
+  }
+
+  const ordered: Workspace[] = [];
+  const visited = new Set<string>();
+  const visit = (workspace: Workspace): void => {
+    if (visited.has(workspace.name)) return;
+    visited.add(workspace.name);
+    const dependencies = { ...workspace.dependencies, ...workspace.devDependencies };
+    Object.keys(dependencies).sort().forEach((name) => {
+      const dependency = byName.get(name);
+      if (dependency && impacted.has(name)) visit(dependency);
+    });
+    ordered.push(workspace);
+  };
+  [...impacted].sort((left, right) => (byName.get(left)?.path ?? left).localeCompare(byName.get(right)?.path ?? right))
+    .forEach((name) => { const workspace = byName.get(name); if (workspace) visit(workspace); });
+  return ordered;
+}
+
 export function buildPrerequisites(changedFiles: string[], workspaces: Workspace[]): string[] {
-  const owners = workspaces.filter(({ path }) => changedFiles.some((file) => file === path || file.startsWith(`${path}/`)));
-  const ownerNames = new Set(owners.map(({ name }) => name));
+  const ownerNames = new Set(impactedWorkspaces(changedFiles, workspaces).map(({ name }) => name));
+  const owners = workspaces.filter(({ name }) => ownerNames.has(name));
   const byName = new Map(workspaces.map((workspace) => [workspace.name, workspace]));
   const visited = new Set<string>();
   const result: string[] = [];
   const visit = (workspace: Workspace): void => {
-    for (const dependencyName of Object.keys(workspace.dependencies ?? {}).sort()) {
+    for (const dependencyName of Object.keys({ ...workspace.dependencies, ...workspace.devDependencies }).sort()) {
       const dependency = byName.get(dependencyName);
       if (!dependency || visited.has(dependencyName)) continue;
       visit(dependency);
@@ -64,6 +94,19 @@ function gitFiles(root: string, args: string[]): string[] {
   return result.stdout.split(/\r?\n/).filter(Boolean).map((file) => file.replaceAll("\\", "/"));
 }
 
+export function getChangedFiles(root: string): string[] {
+  let base: string;
+  try {
+    base = gitFiles(root, ["merge-base", "HEAD", "master"])[0];
+  } catch {
+    base = gitFiles(root, ["merge-base", "HEAD", "origin/master"])[0];
+  }
+  const committed = gitFiles(root, ["diff", "--name-only", `${base}...HEAD`]);
+  const working = gitFiles(root, ["diff", "--name-only", "HEAD"]);
+  const untracked = gitFiles(root, ["ls-files", "--others", "--exclude-standard"]);
+  return [...new Set([...committed, ...working, ...untracked])].sort();
+}
+
 async function runCheck(root: string, check: Check): Promise<Record<string, unknown> | null> {
   const args = check.workspace
     ? ["run", check.step, "-w", check.workspace]
@@ -89,10 +132,7 @@ async function main(): Promise<void> {
   const files = await discoverFiles(root);
   const workspaces = await readWorkspaces(root, files);
   const full = process.argv.includes("--full");
-  const changes = full ? [] : [...new Set([
-    ...gitFiles(root, ["diff", "--name-only", "HEAD"]),
-    ...gitFiles(root, ["ls-files", "--others", "--exclude-standard"])
-  ])];
+  const changes = full ? [] : getChangedFiles(root);
   const sharedConfigChanged = changes.some((file) => ["package.json", "package-lock.json", "tsconfig.base.json"].includes(file));
   const checks = planChecks(changes, workspaces, full || sharedConfigChanged);
   const completed: string[] = [];

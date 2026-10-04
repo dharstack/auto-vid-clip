@@ -1,0 +1,29 @@
+[
+  {
+    "type": "BOSS_PRESENT",
+    "startMs": 10000,
+    "endMs": 16000,
+    "confidence": 0.99
+  },
+  {
+    "type": "LOW_HEALTH",
+    "startMs": 18000,
+    "endMs": 22000,
+    "confidence": 0.95,
+    "metadata": {
+      "estimatedHealthPercent": 12
+    }
+  },
+  {
+    "type": "CRITICAL_ATTACK",
+    "startMs": 28000,
+    "endMs": 30000,
+    "confidence": 0.9
+  },
+  {
+    "type": "BOSS_DEFEATED",
+    "startMs": 30000,
+    "endMs": 34000,
+    "confidence": 0.98
+  }
+]
