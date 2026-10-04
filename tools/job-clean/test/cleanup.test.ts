@@ -27,7 +27,7 @@ describe("cleanup planner", () => {
     const { root, job } = await fixture();
     const plan = await buildCleanupPlan({ workRoot: root, jobId: "job-123" });
     assert.ok(plan.jobs[0].bytesRecoverable > 0);
-    assert.ok(plan.jobs[0].delete.some((item) => item.path === join(job, "source.mp4")));
+    assert.ok(plan.jobs[0].delete.some((item) => item.path === join(plan.workRoot, "job-123", "source.mp4")));
     await executeCleanupPlan(plan);
     await access(join(job, "exports", "clip.mp4"));
     await assert.rejects(readFile(join(job, "source.mp4")));
