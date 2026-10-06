@@ -25,7 +25,10 @@ export function scoreCandidates(candidates: Candidate[], options: ScoringOptions
   const minimumScore = options.minimumScore ?? 0.75;
   const autoRenderScore = options.autoRenderScore ?? 0.9;
 
-  const rawScores = candidates.map((candidate) => candidate.events.reduce((sum, event) => sum + weights[event.type] * event.confidence, 0));
+  const rawScores = candidates.map((candidate) => {
+    const weightedScore = candidate.events.reduce((sum, event) => sum + weights[event.type] * event.confidence, 0);
+    return Math.max(weightedScore, corroboratedSignalScore(candidate));
+  });
   const divisor = options.relative && rawScores.length ? Math.max(...rawScores, 1) : 1;
   return candidates.map((candidate, index) => {
     const score = clamp(round2(rawScores[index] / divisor));
@@ -36,6 +39,19 @@ export function scoreCandidates(candidates: Candidate[], options: ScoringOptions
       reasons: candidate.reasons
     };
   });
+}
+
+function corroboratedSignalScore(candidate: Candidate): number {
+  const motion = candidate.events.filter((event) => event.type === "COMBAT_SPIKE");
+  const audio = candidate.events.filter((event) => event.type === "MIC_REACTION");
+  let score = 0;
+  for (const videoEvent of motion) {
+    for (const audioEvent of audio) {
+      const gapMs = Math.max(0, videoEvent.startMs - audioEvent.endMs, audioEvent.startMs - videoEvent.endMs);
+      if (gapMs <= 5_000) score = Math.max(score, 0.75 + 0.2 * Math.min(videoEvent.confidence, audioEvent.confidence));
+    }
+  }
+  return score;
 }
 
 function decisionFor(score: number, minimumScore: number, autoRenderScore: number): CandidateDecision {

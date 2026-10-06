@@ -29,3 +29,24 @@ test("auto-renders high confidence mixed-event candidate", () => {
   assert.equal(score.score, 0.96);
   assert.equal(score.decision, "AUTO_RENDER");
 });
+
+test("reviews nearby motion and audio signals from real media", () => {
+  const events: Candidate["events"] = [
+    { type: "MIC_REACTION", startMs: 77000, endMs: 78000, confidence: 0.143 },
+    { type: "COMBAT_SPIKE", startMs: 81500, endMs: 85500, confidence: 0.328 }
+  ];
+  const [score] = scoreCandidates([{ ...candidate, category: "INTENSE_COMBAT", events }]);
+  assert.equal(score.score, 0.78);
+  assert.equal(score.decision, "REVIEW");
+});
+
+test("ignores isolated or distant low confidence signals", () => {
+  const audio = { type: "MIC_REACTION" as const, startMs: 0, endMs: 1000, confidence: 0.143 };
+  const motion = { type: "COMBAT_SPIKE" as const, startMs: 7000, endMs: 11000, confidence: 0.328 };
+  const [isolated, distant] = scoreCandidates([
+    { ...candidate, events: [audio] },
+    { ...candidate, events: [audio, motion] }
+  ]);
+  assert.equal(isolated.decision, "IGNORE");
+  assert.equal(distant.decision, "IGNORE");
+});
