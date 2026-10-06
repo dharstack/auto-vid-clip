@@ -6,6 +6,7 @@ test("resolve requires client secret instead of configured access token", async 
   const response = await worker.fetch(
     new Request("https://example.test/api/resolve", {
       method: "POST",
+      headers: { Authorization: "Bearer admin-secret" },
       body: JSON.stringify({ input: "mauledbygrizzly" })
     }),
     mockEnv({ TWITCH_CLIENT_ID: "client" })
@@ -38,6 +39,33 @@ test("CORS preflight returns required methods and headers", async () => {
   assert.equal(response.headers.get("access-control-allow-origin"), "https://auto-video-clip-web.vercel.app");
   assert.match(response.headers.get("access-control-allow-methods") ?? "", /DELETE/);
   assert.match(response.headers.get("access-control-allow-headers") ?? "", /authorization/);
+});
+
+test("dashboard routes reject missing or incorrect admin keys before database access", async () => {
+  for (const path of ["/api/channels", "/api/jobs", "/api/vods?channel=shroud", "/api/worker/status"]) {
+    for (const authorization of [undefined, "Bearer wrong"]) {
+      const response = await worker.fetch(new Request(`https://example.test${path}`, {
+        headers: authorization ? { Authorization: authorization } : undefined
+      }), mockEnv());
+      assert.equal(response.status, 401, `${path} must reject ${authorization ?? "missing key"}`);
+    }
+  }
+});
+
+test("dashboard routes fail closed when the admin key is not configured", async () => {
+  const env = mockEnv();
+  delete (env as { AUTO_CLIPPER_ADMIN_TOKEN?: string }).AUTO_CLIPPER_ADMIN_TOKEN;
+  const response = await worker.fetch(new Request("https://example.test/api/jobs", { headers: { Authorization: "Bearer admin-secret" } }), env);
+  assert.equal(response.status, 401);
+});
+
+test("worker key can read dashboard state but cannot write channel settings", async () => {
+  const env = mockEnv();
+  (env as { AUTO_CLIPPER_WORKER_TOKEN?: string }).AUTO_CLIPPER_WORKER_TOKEN = "worker-secret";
+  const read = await worker.fetch(new Request("https://example.test/api/worker/status", { headers: { Authorization: "Bearer worker-secret" } }), env);
+  assert.equal(read.status, 200);
+  const write = await worker.fetch(new Request("https://example.test/api/channels/example", { method: "DELETE", headers: { Authorization: "Bearer worker-secret" } }), env);
+  assert.equal(write.status, 401);
 });
 
 test("resolve obtains app token then calls Helix", async () => {
@@ -80,6 +108,7 @@ test("resolve obtains app token then calls Helix", async () => {
     const response = await worker.fetch(
       new Request("https://example.test/api/resolve", {
         method: "POST",
+        headers: { Authorization: "Bearer admin-secret" },
         body: JSON.stringify({ input: "mauledbygrizzly" })
       }),
       mockEnv({ TWITCH_CLIENT_ID: "client", TWITCH_CLIENT_SECRET: "secret" })
@@ -112,6 +141,7 @@ test("channel creation normalizes Twitch channel URLs before Helix lookup", asyn
   try {
     const response = await worker.fetch(new Request("https://example.test/api/channels", {
       method: "POST",
+      headers: { Authorization: "Bearer admin-secret" },
       body: JSON.stringify({ channel: " https://www.twitch.tv/mauledbygrizzly/videos " })
     }), mockEnv({ TWITCH_CLIENT_ID: "client", TWITCH_CLIENT_SECRET: "secret" }));
     assert.equal(response.status, 201);
@@ -127,6 +157,9 @@ function mockEnv(overrides: Partial<Record<"TWITCH_CLIENT_ID" | "TWITCH_CLIENT_S
     DB: {
       prepare() {
         return {
+          async first() {
+            return null;
+          },
           bind() {
             return {
               async run() {
@@ -144,6 +177,7 @@ function mockEnv(overrides: Partial<Record<"TWITCH_CLIENT_ID" | "TWITCH_CLIENT_S
       async send() {}
     },
     ALLOWED_ORIGINS: "https://auto-video-clip-web.vercel.app,http://localhost:5173",
+    AUTO_CLIPPER_ADMIN_TOKEN: "admin-secret",
     ...overrides
   }) as unknown as Parameters<typeof worker.fetch>[1];
 }

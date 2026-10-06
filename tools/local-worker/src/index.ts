@@ -88,8 +88,8 @@ async function updateJob(jobId: string, body: Record<string, unknown>): Promise<
 async function snapshot(connectionMessage?: string, authOverride?: "FAILED" | "UNKNOWN"): Promise<MonitorSnapshot> {
   try {
     const [worker, jobs] = await Promise.all([
-      request<{ data: WorkerStatusSnapshot }>("/api/worker/status"),
-      request<{ data: JobTelemetry[] }>("/api/jobs?limit=100")
+      request<{ data: WorkerStatusSnapshot }>("/api/worker/status", { auth: true }),
+      request<{ data: JobTelemetry[] }>("/api/jobs?limit=100", { auth: true })
     ]);
     const workerState = worker.data;
     const jobsList = jobs.data ?? [];

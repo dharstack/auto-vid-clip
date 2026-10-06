@@ -8,6 +8,7 @@ interface Env {
   TWITCH_CLIENT_SECRET?: string;
   ALLOWED_ORIGINS?: string;
   AUTO_CLIPPER_WORKER_TOKEN?: string;
+  AUTO_CLIPPER_ADMIN_TOKEN?: string;
   TWITCH_EVENTSUB_SECRET?: string;
   TWITCH_EVENTSUB_CALLBACK_URL?: string;
   WORKER_VERSION?: string;
@@ -23,6 +24,12 @@ export default {
       const url = new URL(request.url);
 
     try {
+      const workerRoute = url.pathname === "/api/worker/heartbeat" || url.pathname === "/api/jobs/claim" || (url.pathname.startsWith("/api/jobs/") && request.method === "PATCH");
+      const eventSubWebhook = url.pathname === "/api/eventsub" && request.method === "POST";
+      if (url.pathname !== "/health" && !workerRoute && !eventSubWebhook) {
+        if (request.method === "GET" || (url.pathname === "/api/resolve" && request.method === "POST")) requireOperator(request, env);
+        else requireAdmin(request, env);
+      }
       if (request.method === "GET" && url.pathname === "/health") {
         return json({ status: "ok" }, env, 200, request);
       }
@@ -197,7 +204,7 @@ export default {
       return json({ status: "error", code: "NOT_FOUND", message: "Not found" }, env, 404, request);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const status = message === "WORKER_UNAUTHORIZED" || message === "EVENTSUB_UNAUTHORIZED" ? 401 : message === "WORKER_ID_REQUIRED" || message === "VOD_ID_INVALID" ? 400 : 500;
+      const status = message === "ADMIN_UNAUTHORIZED" || message === "WORKER_UNAUTHORIZED" || message === "EVENTSUB_UNAUTHORIZED" ? 401 : message === "WORKER_ID_REQUIRED" || message === "VOD_ID_INVALID" ? 400 : 500;
       return json({ status: "error", code: status === 401 ? "UNAUTHORIZED" : "API_ERROR", message }, env, status, request);
     }
   }
@@ -287,4 +294,16 @@ function withCors(body: BodyInit | null, env: Env, status = 204, request?: Reque
 function requireWorker(request: Request, env: Env): void {
   const expected = env.AUTO_CLIPPER_WORKER_TOKEN;
   if (!expected || request.headers.get("Authorization") !== `Bearer ${expected}`) throw new Error("WORKER_UNAUTHORIZED");
+}
+
+function requireAdmin(request: Request, env: Env): void {
+  const expected = env.AUTO_CLIPPER_ADMIN_TOKEN;
+  if (!expected || request.headers.get("Authorization") !== `Bearer ${expected}`) throw new Error("ADMIN_UNAUTHORIZED");
+}
+
+function requireOperator(request: Request, env: Env): void {
+  const authorization = request.headers.get("Authorization");
+  if (env.AUTO_CLIPPER_ADMIN_TOKEN && authorization === `Bearer ${env.AUTO_CLIPPER_ADMIN_TOKEN}`) return;
+  if (env.AUTO_CLIPPER_WORKER_TOKEN && authorization === `Bearer ${env.AUTO_CLIPPER_WORKER_TOKEN}`) return;
+  throw new Error("ADMIN_UNAUTHORIZED");
 }

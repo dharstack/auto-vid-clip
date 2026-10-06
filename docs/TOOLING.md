@@ -56,6 +56,7 @@ npm run local:worker
 ```
 
 Real Twitch VOD acquisition requires `yt-dlp`. Rendering requires FFmpeg and ffprobe.
+Put `yt-dlp` on `PATH` or set `YTDLP_PATH` to its executable path on the local worker.
 
 Use dry run for artifact flow without downloading or rendering:
 
@@ -76,6 +77,13 @@ npx wrangler d1 migrations apply auto-video-clip --remote
 
 Vercel auto-deploys web. Cloudflare Worker does not auto-deploy from this repository.
 Redeploy Worker after API or CORS changes. Apply remote D1 migrations before using watched channels; `0005_watched_channels.sql` is required.
+Set `AUTO_CLIPPER_ADMIN_TOKEN` as a Cloudflare Worker secret before deploying. The dashboard asks for this key once per page load and sends it with API requests. Use a separate `AUTO_CLIPPER_WORKER_TOKEN` for the local worker. API dashboard routes reject requests when the admin secret is absent.
+
+```bash
+cd apps/api
+npx wrangler secret put AUTO_CLIPPER_ADMIN_TOKEN
+npx wrangler secret put AUTO_CLIPPER_WORKER_TOKEN
+```
 
 Production Vercel variable:
 
@@ -90,6 +98,7 @@ Local API development uses `apps/api/.dev.vars`:
 ```text
 TWITCH_CLIENT_ID=<client-id>
 TWITCH_CLIENT_SECRET=<client-secret>
+AUTO_CLIPPER_ADMIN_TOKEN=<admin-key>
 ```
 
 Vercel web:

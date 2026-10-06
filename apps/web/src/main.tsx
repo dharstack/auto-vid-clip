@@ -4,11 +4,12 @@ import { PIPELINE_STAGES, STAGE_LABELS, type PipelineStage, type WorkerStatusSna
 import "./styles.css";
 
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8787";
+let adminKey: string | null = null;
 type WatchedChannel = { broadcaster_id: string; login: string; display_name: string; enabled: number | boolean; auto_process: number | boolean; profile_id: string; last_vod_id: string | null; eventsub_subscription_id: string | null };
 type Vod = { channel: string; vodId: string; title: string; durationSeconds: number; createdAt?: string };
 type EventSubStatus = { configured: boolean; type: string };
 type Job = { jobId: string; vodId?: string; status: string; stage: string; progress: number | null; message?: string | null; elapsedMs?: number | null; etaMs?: number | null; error?: string | null; worker?: string | null; updatedAt?: string | null; clipsPlanned?: number | null; clipsRendered?: number | null };
-async function api<T>(path: string, init?: RequestInit): Promise<T> { let response: Response; try { response = await fetch(`${apiBase}${path}`, init); } catch { throw new Error("Cannot reach API. Check Cloudflare deployment / API URL."); } const body = await response.json().catch(() => ({})) as { status?: string; message?: string; data?: T }; if (!response.ok || body.status !== "ok") throw new Error(body.message ?? `API returned HTTP ${response.status}.`); return body.data as T; }
+async function api<T>(path: string, init?: RequestInit): Promise<T> { if (!adminKey) adminKey = window.prompt("Enter the Auto Clipper admin key")?.trim() || null; if (!adminKey) throw new Error("Admin key required."); let response: Response; try { const headers = new Headers(init?.headers); headers.set("Authorization", `Bearer ${adminKey}`); response = await fetch(`${apiBase}${path}`, { ...init, headers }); } catch { throw new Error("Cannot reach API. Check Cloudflare deployment / API URL."); } const body = await response.json().catch(() => ({})) as { status?: string; message?: string; data?: T }; if (response.status === 401) { adminKey = null; throw new Error("Admin key rejected. Retry the action to enter it again."); } if (!response.ok || body.status !== "ok") throw new Error(body.message ?? `API returned HTTP ${response.status}.`); return body.data as T; }
 const listChannels = () => api<WatchedChannel[]>("/api/channels");
 const addChannel = (channel: string) => api<unknown>("/api/channels", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ channel }) });
 const updateChannel = (id: string, body: Record<string, unknown>) => api<unknown>(`/api/channels/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });

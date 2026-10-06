@@ -372,7 +372,7 @@ async function resolvePipelineInput(input: string, apiBaseUrl: string | undefine
 
   const response = await globalThis.fetch(`${apiBaseUrl.replace(/\/$/, "")}/api/resolve`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(process.env.AUTO_CLIPPER_WORKER_TOKEN ? { Authorization: `Bearer ${process.env.AUTO_CLIPPER_WORKER_TOKEN}` } : {}) },
     body: JSON.stringify({ input: parsed.url })
   });
   if (!response.ok) throw new Error(`TWITCH_CHANNEL_RESOLVE_FAILED: ${response.status}`);
@@ -391,10 +391,7 @@ function runCommand(command: string, args: string[]): Promise<void> {
 }
 
 function resolveYtDlp(): string {
-  if (process.env.YTDLP_PATH) return process.env.YTDLP_PATH;
-  const userInstall = "C:\\Users\\dharz\\AppData\\Roaming\\Python\\Python314\\Scripts\\yt-dlp.exe";
-  if (existsSync(userInstall)) return userInstall;
-  return "yt-dlp";
+  return process.env.YTDLP_PATH || "yt-dlp";
 }
 
 await main();
