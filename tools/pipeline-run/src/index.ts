@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { appendFile, copyFile, mkdir, readFile, readdir, writeFile, access } from "node:fs/promises";
+import { appendFile, copyFile, mkdir, readFile, readdir, writeFile, access, rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import { buildCandidates } from "@auto-clipper/candidates";
 import { detectChatClipCueEvents, detectEventsFromMedia, type TranscriptSegment } from "@auto-clipper/detectors";
@@ -13,6 +13,7 @@ import { scoreCandidates } from "@auto-clipper/scoring";
 import { flagValue, hasFlag, PipelineProgressRenderer, positionalArg, toToolError } from "@auto-clipper/tooling";
 import { buildCleanupPlan, executeCleanupPlan } from "@auto-clipper/tool-job-clean";
 import { uploadYoutubeVideo } from "@auto-clipper/tool-youtube-upload";
+import { applyOpenCodeSelection, ensureOpenCodeReady, selectWithOpenCode } from "@auto-clipper/opencode-selection";
 
 let remoteProgressEndpoint: string | undefined;
 let cliJson = false;
@@ -38,6 +39,8 @@ async function main(): Promise<void> {
     const cleanup = hasFlag(argv, "--cleanup");
     const uploadYoutube = hasFlag(argv, "--upload-youtube");
     cliJson = hasFlag(argv, "--json");
+    if (hasFlag(argv, "--opencode") && hasFlag(argv, "--no-opencode")) throw new Error("OPENCODE_FLAGS_CONFLICT: choose one selection mode");
+    const useOpenCode = !hasFlag(argv, "--no-opencode") && !dryRun;
     cliVerbose = hasFlag(argv, "--verbose");
     cliInput = input;
     cliInterrupted = false;
@@ -59,6 +62,8 @@ async function main(): Promise<void> {
     cliJobDir = jobDir;
     const exportsDir = join(jobDir, "exports");
     await mkdir(exportsDir, { recursive: true });
+    await rm(join(jobDir, "opencode-selection.json"), { force: true });
+    if (useOpenCode) await ensureOpenCodeReady(jobDir);
     await writeProgress(jobDir, { jobId, stage: "RESOLVE", status: "complete", progress: 1, message: "Resolved input", elapsedMs: 0 });
 
     let manifest = await loadManifest(jobDir, jobId, vodId);
@@ -142,14 +147,19 @@ async function main(): Promise<void> {
       : buildCandidates(events);
     await writeJson(join(jobDir, "candidates.json"), candidates);
     await writeProgress(jobDir, { jobId, stage: "SCORE", status: "running", progress: null, message: "Scoring candidates", elapsedMs: 0 });
-    const scores = existsSync(join(jobDir, "scores.json"))
-      ? JSON.parse(await readFile(join(jobDir, "scores.json"), "utf8"))
-      : scoreCandidates(candidates);
+    let scores = scoreCandidates(candidates);
+    let opencodeInvoked = false;
+    if (useOpenCode) {
+      await writeProgress(jobDir, { jobId, stage: "OPENCODE_SELECT", status: "running", progress: null, message: "Selecting clips with OpenCode", elapsedMs: 0 });
+      const selection = await selectWithOpenCode(jobDir, candidates, scores);
+      opencodeInvoked = selection.invoked;
+      await writeJson(join(jobDir, "opencode-selection.json"), selection);
+      scores = applyOpenCodeSelection(scores, selection);
+      await writeProgress(jobDir, { jobId, stage: "OPENCODE_SELECT", status: "complete", progress: 1, message: "OpenCode selection ready", elapsedMs: 0 });
+    }
     await writeJson(join(jobDir, "scores.json"), scores);
     await writeProgress(jobDir, { jobId, stage: "BUILD_RENDER_PLAN", status: "running", progress: null, message: "Building render plan", elapsedMs: 0 });
-    const plan = existsSync(join(jobDir, "render-plan.json"))
-      ? JSON.parse(await readFile(join(jobDir, "render-plan.json"), "utf8"))
-      : buildRenderPlan(candidates, scores, { sourceDurationMs: probe.durationMs });
+    const plan = buildRenderPlan(candidates, scores, { sourceDurationMs: probe.durationMs });
     await writeJson(join(jobDir, "render-plan.json"), plan);
     await writeProgress(jobDir, { jobId, stage: "BUILD_CANDIDATES", status: "complete", progress: 1, message: "Candidates ready", elapsedMs: 0 });
     await writeProgress(jobDir, { jobId, stage: "SCORE", status: "complete", progress: 1, message: "Scores ready", elapsedMs: 0 });
@@ -199,15 +209,15 @@ async function main(): Promise<void> {
     await writeProgress(jobDir, { jobId, stage: "COMPLETE", status: "complete", progress: 1, message: plan.clips.length ? "Pipeline complete" : "No candidates met the render threshold", elapsedMs: 0 });
     await writeJson(join(jobDir, "manifest.json"), manifest);
 
-    if (cliJson) process.stdout.write(`${JSON.stringify({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, manifest: join(jobDir, "manifest.json") } })}\n`);
+    if (cliJson) process.stdout.write(`${JSON.stringify({ status: "ok", output: exportsDir, data: { jobId, clips: plan.clips.length, selectionMode: useOpenCode ? "opencode" : "deterministic", opencodeInvoked, manifest: join(jobDir, "manifest.json") } })}\n`);
     else cliRenderer?.update({ jobId, stage: "COMPLETE", status: "complete", progress: 1, message: "Pipeline complete", elapsedMs: Date.now() - cliStartedAtMs, updatedAt: new Date().toISOString() }, cliCompletedStages, cliHeader);
   } catch (error) {
+    const reason = cliInterrupted ? "INTERRUPTED: stopped by Ctrl+C" : error instanceof Error ? error.message : String(error);
+    const logPath = cliJobDir ? join(cliJobDir, "logs") : "work/<job-id>/logs";
+    const resume = `npm run local:pipeline -- ${cliInput ?? "<input>"}${cliJobId ? ` --job-id ${cliJobId}` : ""}`;
+    if (cliJobDir && cliJobId) await writeJson(join(cliJobDir, "progress.json"), { jobId: cliJobId, stage: "FAILED", status: "failed", progress: null, message: reason, elapsedMs: Math.max(0, Date.now() - cliStartedAtMs), updatedAt: new Date().toISOString(), resumable: true, resumeCommand: resume });
     if (cliJson) process.stdout.write(`${JSON.stringify(toToolError(error, "PIPELINE_RUN_FAILED"))}\n`);
     else {
-      const reason = cliInterrupted ? "INTERRUPTED: stopped by Ctrl+C" : error instanceof Error ? error.message : String(error);
-      const logPath = cliJobDir ? join(cliJobDir, "logs") : "work/<job-id>/logs";
-      const resume = `npm run local:pipeline -- ${cliInput ?? "<input>"}${cliJobId ? ` --job-id ${cliJobId}` : ""}`;
-      if (cliJobDir && cliJobId) await writeJson(join(cliJobDir, "progress.json"), { jobId: cliJobId, stage: "FAILED", status: "failed", progress: null, message: reason, elapsedMs: Math.max(0, Date.now() - cliStartedAtMs), updatedAt: new Date().toISOString(), resumable: true, resumeCommand: resume });
       cliRenderer?.failure(reason, logPath, resume);
       if (cliVerbose) process.stderr.write(`Detailed logs: ${logPath}\n`);
     }

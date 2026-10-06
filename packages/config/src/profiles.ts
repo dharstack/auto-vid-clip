@@ -17,7 +17,7 @@ export const GENERIC_RECIPE: ClipRecipe = {
     clip: { preRollSeconds: 15, postRollSeconds: 10 },
     analysis: { proxyHeight: 480, fps: 15 },
     detect: { boss: true, lowHealth: true, death: true, combatSpike: true, criticalAttack: true, execution: true, microphoneReaction: true },
-    runtimeAI: { enabled: false }
+    runtimeAI: { enabled: true }
   }
 };
 

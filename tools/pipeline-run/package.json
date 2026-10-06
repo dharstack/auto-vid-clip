@@ -10,6 +10,7 @@
     "@auto-clipper/jobs": "0.1.0",
     "@auto-clipper/media": "0.1.0",
     "@auto-clipper/media-tools": "0.1.0",
+    "@auto-clipper/opencode-selection": "0.1.0",
     "@auto-clipper/render-plan": "0.1.0",
     "@auto-clipper/scoring": "0.1.0",
     "@auto-clipper/tooling": "0.1.0",

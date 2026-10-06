@@ -19,7 +19,7 @@ test("given the six second fixture, when the real pipeline runs, then artifacts 
   try {
     await mkdir(jobDirectory, { recursive: true });
     await copyFile(eventFixture, join(jobDirectory, "events.json"));
-    const result = await execFileAsync(process.execPath, [cli, fixture, "--work-root", workRoot, "--job-id", jobId, "--json"], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
+    const result = await execFileAsync(process.execPath, [cli, fixture, "--work-root", workRoot, "--job-id", jobId, "--no-opencode", "--json"], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
     const messages = result.stdout.trim().split(/\r?\n/).map((line) => JSON.parse(line) as { status?: string; stage?: string; type?: string; data?: { clips?: number } });
     assert.ok(messages.some((message) => message.type === "pipeline.progress" && message.stage === "COMPLETE" && message.status === "complete"));
     assert.equal(messages.at(-1)?.status, "ok");

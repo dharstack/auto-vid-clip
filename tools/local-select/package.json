@@ -3,9 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "bin": { "local-select": "dist/src/index.js" },
-  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit" },
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "npm run build && node --test dist/test/*.test.js", "typecheck": "tsc -p tsconfig.json --noEmit" },
   "dependencies": {
     "@auto-clipper/candidates": "0.1.0",
+    "@auto-clipper/opencode-selection": "0.1.0",
     "@auto-clipper/render-plan": "0.1.0",
     "@auto-clipper/scoring": "0.1.0"
   }

@@ -58,6 +58,6 @@ export const DEFAULT_CONFIG: AutoClipperConfig = {
     microphoneReaction: true
   },
   runtimeAI: {
-    enabled: false
+    enabled: true
   }
 };

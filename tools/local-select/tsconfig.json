@@ -1,5 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src/**/*.ts"]
+  "compilerOptions": { "outDir": "dist", "rootDir": "." },
+  "references": [{ "path": "../../packages/opencode-selection" }],
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

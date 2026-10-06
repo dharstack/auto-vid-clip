@@ -7,6 +7,7 @@
     { "path": "../../packages/jobs" },
     { "path": "../../packages/media" },
     { "path": "../../packages/media-tools" },
+    { "path": "../../packages/opencode-selection" },
     { "path": "../../packages/render-plan" },
     { "path": "../../packages/scoring" },
     { "path": "../../packages/tooling" },
