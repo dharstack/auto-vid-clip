@@ -40,7 +40,7 @@ test("given the six second fixture, when the real pipeline runs, then artifacts 
     const candidates = artifacts["candidates.json"] as unknown[];
     assert.ok(events.length > 0, "fixture must produce events");
     assert.ok(candidates.length > 0, "fixture must produce candidates");
-    const plan = JSON.parse(await readFile(join(jobDirectory, "render-plan.json"), "utf8")) as { clips: Array<{ output: string }> };
+    const plan = JSON.parse(await readFile(join(jobDirectory, "render-plan.json"), "utf8")) as { clips: Array<{ output: string; startMs: number; endMs: number }> };
     assert.ok(plan.clips.length > 0, "fixture must produce render-plan clips");
     assert.equal(messages.at(-1)?.data?.clips, plan.clips.length);
     const exportsDirectory = join(jobDirectory, "exports");
@@ -49,8 +49,14 @@ test("given the six second fixture, when the real pipeline runs, then artifacts 
       const exportPath = join(exportsDirectory, clip.output);
       await access(exportPath);
       assert.ok((await stat(exportPath)).size > 0, `${clip.output} must be non-empty`);
-      const probe = await execFileAsync("ffprobe", ["-v", "error", "-show_entries", "format=format_name", "-of", "default=noprint_wrappers=1:nokey=1", exportPath]);
-      assert.ok(probe.stdout.trim(), `${clip.output} must be readable by ffprobe`);
+      const probe = await execFileAsync("ffprobe", ["-v", "error", "-show_entries", "format=duration:stream=codec_type", "-of", "json", exportPath]);
+      const media = JSON.parse(probe.stdout) as { format?: { duration?: string }; streams?: Array<{ codec_type?: string }> };
+      const streamTypes = new Set(media.streams?.map((stream) => stream.codec_type));
+      assert.ok(streamTypes.has("video"), `${clip.output} must contain video`);
+      assert.ok(streamTypes.has("audio"), `${clip.output} must contain audio`);
+      const durationMs = Number(media.format?.duration) * 1000;
+      assert.ok(Number.isFinite(durationMs) && durationMs > 0, `${clip.output} must have a positive duration`);
+      assert.ok(Math.abs(durationMs - (clip.endMs - clip.startMs)) < 500, `${clip.output} duration must match its render plan`);
       exportCount += 1;
     }
     assert.ok(exportCount > 0, "pipeline must export at least one clip");
