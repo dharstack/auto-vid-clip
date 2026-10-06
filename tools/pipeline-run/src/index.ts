@@ -63,7 +63,7 @@ async function main(): Promise<void> {
     const exportsDir = join(jobDir, "exports");
     await mkdir(exportsDir, { recursive: true });
     await rm(join(jobDir, "opencode-selection.json"), { force: true });
-    if (useOpenCode) await ensureOpenCodeReady(jobDir);
+    if (useOpenCode) await ensureOpenCodeReady();
     await writeProgress(jobDir, { jobId, stage: "RESOLVE", status: "complete", progress: 1, message: "Resolved input", elapsedMs: 0 });
 
     let manifest = await loadManifest(jobDir, jobId, vodId);
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
     let opencodeInvoked = false;
     if (useOpenCode) {
       await writeProgress(jobDir, { jobId, stage: "OPENCODE_SELECT", status: "running", progress: null, message: "Selecting clips with OpenCode", elapsedMs: 0 });
-      const selection = await selectWithOpenCode(jobDir, candidates, scores);
+      const selection = await selectWithOpenCode(candidates, scores);
       opencodeInvoked = selection.invoked;
       await writeJson(join(jobDir, "opencode-selection.json"), selection);
       scores = applyOpenCodeSelection(scores, selection);

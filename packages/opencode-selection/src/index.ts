@@ -1,10 +1,9 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Candidate, CandidateScore } from "@auto-clipper/contracts";
 
-export const DEFAULT_OPENCODE_MODEL = "opencode/mimo-v2.5-free";
+export const DEFAULT_OPENCODE_MODEL = "opencode/mimo-v2.6-flash-free";
 
 export interface OpenCodeSelection {
   model: string;
@@ -51,16 +50,15 @@ export function applyOpenCodeSelection(scores: CandidateScore[], selection: Open
   });
 }
 
-export async function ensureOpenCodeReady(jobDir: string): Promise<void> {
+export async function ensureOpenCodeReady(): Promise<void> {
   const model = freeModel();
-  await writeOpenCodeConfig(jobDir, model);
-  const output = await runOpenCode(resolveOpenCodeCommand(), ["models", "--standalone"], jobDir);
+  const output = await runOpenCode(resolveOpenCodeCommand(), ["models"], process.cwd());
   if (!output.split(/\r?\n/).some((line) => line.trim() === model)) {
     throw new Error(`OPENCODE_FREE_MODEL_UNAVAILABLE: connect a free provider with opencode auth login, then check opencode models for ${model}`);
   }
 }
 
-export async function selectWithOpenCode(jobDir: string, candidates: Candidate[], scores: CandidateScore[]): Promise<OpenCodeSelection> {
+export async function selectWithOpenCode(candidates: Candidate[], scores: CandidateScore[]): Promise<OpenCodeSelection> {
   const model = freeModel();
   if (!candidates.length) return { model, invoked: false, selected: [] };
   const byId = new Map(scores.map((score) => [score.candidateId, score]));
@@ -81,9 +79,8 @@ export async function selectWithOpenCode(jobDir: string, candidates: Candidate[]
       .map((event) => ({ type: event.type, startMs: event.startMs, endMs: event.endMs, confidence: Number(event.confidence.toFixed(3)) }))
   }));
   const prompt = `Select up to 8 likely highlight clips from this JSON evidence. Signals are estimates, not proof of gameplay. Prefer short, well-supported moments. Return ONLY a JSON object: {"selected":[{"candidateId":"cand-001","reason":"brief reason"}]}. Use only supplied IDs; an empty array is valid. Do not use tools.\n${JSON.stringify(evidence)}`;
-  await writeOpenCodeConfig(jobDir, model);
   const command = resolveOpenCodeCommand();
-  const output = await runOpenCode(command, ["run", "--standalone", "--model", model, "--format", "json", prompt], jobDir);
+  const output = await runOpenCode(command, ["run", "--standalone", "--model", model, "--format", "json", prompt], process.cwd());
   return parseOpenCodeSelection(output, shortlist, model);
 }
 
@@ -91,14 +88,6 @@ function freeModel(): string {
   const model = process.env.OPENCODE_MODEL ?? DEFAULT_OPENCODE_MODEL;
   if (!/^opencode\/[a-z0-9.-]+-free$/i.test(model)) throw new Error("OPENCODE_FREE_MODEL_REQUIRED: OPENCODE_MODEL must name an OpenCode free model");
   return model;
-}
-
-async function writeOpenCodeConfig(jobDir: string, model: string): Promise<void> {
-  await writeFile(join(jobDir, "opencode.json"), JSON.stringify({
-    $schema: "https://opencode.ai/config.json",
-    model,
-    permissions: [{ action: "*", resource: "*", effect: "deny" }]
-  }));
 }
 
 function resolveOpenCodeCommand(): string[] {

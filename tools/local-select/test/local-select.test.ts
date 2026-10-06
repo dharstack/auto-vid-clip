@@ -17,7 +17,7 @@ test("local selection defaults to OpenCode and accepts deterministic opt out", a
     await copyFile(resolve("fixtures/events/boss-close-call-e2e.json"), join(jobDirectory, "events.json"));
     await writeFile(join(jobDirectory, "media.json"), JSON.stringify({ durationMs: 6000 }));
     const { stdout } = await execFileAsync(process.execPath, [cli, "--job", "fixture", "--work-root", root], {
-      env: { ...process.env, OPENCODE_PATH: resolve("packages/opencode-selection/test/fixtures/fake-opencode.mjs"), OPENCODE_MODEL: "opencode/mimo-v2.5-free" }
+      env: { ...process.env, OPENCODE_PATH: resolve("packages/opencode-selection/test/fixtures/fake-opencode.mjs"), OPENCODE_MODEL: "opencode/mimo-v2.6-flash-free" }
     });
     const result = JSON.parse(stdout) as { selectionMode: string; opencodeInvoked: boolean; clips: number };
     assert.equal(result.selectionMode, "opencode");

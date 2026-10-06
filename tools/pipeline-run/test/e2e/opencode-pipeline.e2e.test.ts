@@ -18,7 +18,7 @@ test("default pipeline uses OpenCode selection before rendering", async () => {
     const { stdout } = await execFileAsync(process.execPath, [
       resolve("tools/pipeline-run/dist/src/index.js"), resolve("fixtures/media/sample-6s.mp4"),
       "--work-root", workRoot, "--job-id", "opencode-fixture", "--json"
-    ], { timeout: 120_000, env: { ...process.env, OPENCODE_PATH: resolve("packages/opencode-selection/test/fixtures/fake-opencode.mjs"), OPENCODE_MODEL: "opencode/mimo-v2.5-free" } });
+    ], { timeout: 120_000, env: { ...process.env, OPENCODE_PATH: resolve("packages/opencode-selection/test/fixtures/fake-opencode.mjs"), OPENCODE_MODEL: "opencode/mimo-v2.6-flash-free" } });
     const result = JSON.parse(stdout.trim().split(/\r?\n/).at(-1)!) as { status: string; data: { clips: number; selectionMode: string; opencodeInvoked: boolean } };
     assert.equal(result.status, "ok");
     assert.equal(result.data.selectionMode, "opencode");
@@ -26,8 +26,6 @@ test("default pipeline uses OpenCode selection before rendering", async () => {
     assert.equal(result.data.clips, 1);
     const selection = JSON.parse(await readFile(join(jobDirectory, "opencode-selection.json"), "utf8")) as { selected: unknown[] };
     assert.equal(selection.selected.length, 1);
-    const config = JSON.parse(await readFile(join(jobDirectory, "opencode.json"), "utf8")) as { permissions: Array<{ effect: string }> };
-    assert.equal(config.permissions[0].effect, "deny");
     await access(join(jobDirectory, "exports", "01-boss-close-call.mp4"));
   } finally {
     await rm(root, { recursive: true, force: true });

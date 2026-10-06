@@ -8,7 +8,7 @@ const candidates: Candidate[] = [
   { id: "cand-002", category: "REACTION", startMs: 7000, endMs: 9000, events: [], reasons: [] }
 ];
 const scores: CandidateScore[] = candidates.map((candidate) => ({ candidateId: candidate.id, score: 0.1, decision: "IGNORE", reasons: [] }));
-const model = "opencode/mimo-v2.5-free";
+const model = "opencode/mimo-v2.6-flash-free";
 
 test("uses only validated OpenCode candidate IDs", () => {
   const output = JSON.stringify({ type: "text", part: { text: '{"selected":[{"candidateId":"cand-002","reason":"Nearby signals"}]}' } });

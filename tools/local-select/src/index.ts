@@ -16,13 +16,13 @@ async function main(): Promise<void> {
   const root = value("--work-root") ?? "work";
   const dir = join(root, jobId);
   await rm(join(dir, "opencode-selection.json"), { force: true });
-  if (useOpenCode) await ensureOpenCodeReady(dir);
+  if (useOpenCode) await ensureOpenCodeReady();
   const events = JSON.parse(await readFile(join(dir, "events.json"), "utf8"));
   const candidates = buildCandidates(events);
   let scores = scoreCandidates(candidates);
   let opencodeInvoked = false;
   if (useOpenCode) {
-    const selection = await selectWithOpenCode(dir, candidates, scores);
+    const selection = await selectWithOpenCode(candidates, scores);
     opencodeInvoked = selection.invoked;
     scores = applyOpenCodeSelection(scores, selection);
     await writeFile(join(dir, "opencode-selection.json"), JSON.stringify(selection, null, 2));
