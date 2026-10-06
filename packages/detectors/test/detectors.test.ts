@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consumeFixedChunks, detectAudioReactionEvents, detectChatClipCueEvents, detectCombatMotionEvents } from "../src/index.js";
+import { adaptiveAudioMinimumRms, adaptiveMotionThreshold, consumeFixedChunks, detectAudioReactionEvents, detectChatClipCueEvents, detectCombatMotionEvents } from "../src/index.js";
 
 test("detects sustained motion spikes from sampled frame differences", () => {
   const events = detectCombatMotionEvents([
@@ -44,4 +44,13 @@ test("detects chat clip cue and selects prior two minutes", () => {
   assert.equal(events[0].type, "CHAT_CLIP_CUE");
   assert.equal(events[0].startMs, 27000);
   assert.equal(events[0].endMs, 122000);
+});
+
+test("adapts signal floors to stream levels without promoting quiet footage", () => {
+  const motion = [0.028, 0.029, 0.03, 0.08, 0.13].map((difference, index) => ({ timestampMs: index * 500, difference }));
+  const audio = [0.002, 0.003, 0.004, 0.026, 0.046].map((rms, index) => ({ timestampMs: index * 1000, rms }));
+  assert.equal(adaptiveMotionThreshold(motion), 0.08);
+  assert.equal(adaptiveAudioMinimumRms(audio), 0.02);
+  assert.equal(adaptiveMotionThreshold([{ timestampMs: 0, difference: 0.1 }]), 0.25);
+  assert.equal(adaptiveAudioMinimumRms([{ timestampMs: 0, rms: 0.04 }]), 0.12);
 });

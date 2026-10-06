@@ -38,3 +38,15 @@ test("bounds transitive merge windows", () => {
   ], { maxCandidateDurationMs: 90000 });
   assert.ok(candidates.every((candidate) => candidate.endMs - candidate.startMs <= 90000));
 });
+
+test("keeps separate signal bursts in separate clips", () => {
+  const candidates = buildCandidates([
+    { type: "COMBAT_SPIKE", startMs: 47500, endMs: 48500, confidence: 0.08 },
+    { type: "COMBAT_SPIKE", startMs: 62000, endMs: 64500, confidence: 0.1 },
+    { type: "MIC_REACTION", startMs: 65000, endMs: 71000, confidence: 0.05 },
+    { type: "COMBAT_SPIKE", startMs: 67500, endMs: 72500, confidence: 0.13 },
+    { type: "MIC_REACTION", startMs: 89000, endMs: 90000, confidence: 0.03 }
+  ]);
+  assert.equal(candidates.length, 3);
+  assert.deepEqual(candidates.map((candidate) => [candidate.startMs, candidate.endMs]), [[47500, 48500], [62000, 72500], [89000, 90000]]);
+});

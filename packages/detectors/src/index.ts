@@ -8,6 +8,20 @@ export interface AudioReactionOptions { baselineWindow?: number; multiplier?: nu
 export interface TranscriptSegment { start: number; end: number; text: string; }
 export interface SpeechCueOptions { windowMs?: number; }
 
+export function adaptiveMotionThreshold(samples: FrameDifferenceSample[]): number {
+  return Math.max(0.08, median(samples.map((sample) => sample.difference)) * 2.5);
+}
+
+export function adaptiveAudioMinimumRms(samples: AudioRmsSample[]): number {
+  return Math.max(0.02, median(samples.map((sample) => sample.rms)) * 3);
+}
+
+function median(values: number[]): number {
+  if (!values.length) return 0;
+  const sorted = values.filter(Number.isFinite).sort((left, right) => left - right);
+  return sorted[Math.floor(sorted.length / 2)] ?? 0;
+}
+
 export function detectChatClipCueEvents(segments: TranscriptSegment[], options: SpeechCueOptions = {}): GameplayEvent[] {
   const windowMs = options.windowMs ?? 120_000;
   return segments.filter((segment) => /\bchat\s+clip\s+that\b/i.test(segment.text.replace(/[^a-z0-9]+/gi, " "))).map((segment) => ({
@@ -79,10 +93,10 @@ export async function detectEventsFromMedia(options: {
 }): Promise<GameplayEvent[]> {
   const ffmpeg = options.ffmpegPath ?? process.env.FFMPEG_PATH ?? "ffmpeg";
   const videoSamples = await readFrameDifferences(ffmpeg, options.videoPath, options.sampleFps ?? 2);
-  const events = detectCombatMotionEvents(videoSamples);
+  const events = detectCombatMotionEvents(videoSamples, { threshold: adaptiveMotionThreshold(videoSamples) });
   if (options.audioPath) {
     const audioSamples = await readAudioRms(ffmpeg, options.audioPath);
-    events.push(...detectAudioReactionEvents(audioSamples));
+    events.push(...detectAudioReactionEvents(audioSamples, { minimumRms: adaptiveAudioMinimumRms(audioSamples) }));
   }
   return events.sort((left, right) => left.startMs - right.startMs);
 }

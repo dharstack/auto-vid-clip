@@ -6,7 +6,7 @@ export interface CandidateBuildOptions {
 }
 
 export function buildCandidates(events: GameplayEvent[], options: CandidateBuildOptions = {}): Candidate[] {
-  const mergeWindowMs = options.mergeWindowMs ?? 45000;
+  const mergeWindowMs = options.mergeWindowMs ?? 10000;
   const maxCandidateDurationMs = options.maxCandidateDurationMs ?? 120000;
   const sorted = [...events].sort((left, right) => left.startMs - right.startMs);
   const groups: GameplayEvent[][] = [];
